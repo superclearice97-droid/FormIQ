@@ -1,0 +1,62 @@
+# Copies third-party runtime files into this repo so the app serves them itself
+# (no requests to Google Fonts, jsDelivr or Google Cloud Storage on page load).
+name: Vendor third-party assets
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/vendor.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Download pinned assets
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/vendor"
+          rm -rf "$OUT" && mkdir -p "$OUT/mediapipe/wasm" "$OUT/models" "$OUT/fonts" "$OUT/barcode"
+          cd "$RUNNER_TEMP"
+
+          # MediaPipe Tasks Vision (Apache-2.0)
+          npm pack @mediapipe/tasks-vision@0.10.14 --silent
+          mkdir mp && tar xzf mediapipe-tasks-vision-0.10.14.tgz -C mp
+          cp mp/package/vision_bundle.mjs "$OUT/mediapipe/"
+          cp mp/package/wasm/* "$OUT/mediapipe/wasm/"
+
+          # Pose Landmarker models (Apache-2.0)
+          for m in lite full heavy; do
+            curl -fsSL -o "$OUT/models/pose_landmarker_$m.task" \
+              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_$m/float16/1/pose_landmarker_$m.task"
+          done
+
+          # Fonts (SIL OFL 1.1), latin subset only
+          npm pack @fontsource/barlow-condensed@5 @fontsource/ibm-plex-sans@5 @fontsource/ibm-plex-mono@5 --silent
+          for f in fontsource-*.tgz; do mkdir -p "f/$f" && tar xzf "$f" -C "f/$f"; done
+          cp f/*barlow-condensed*/package/files/barlow-condensed-latin-800-normal.woff2 "$OUT/fonts/"
+          cp f/*barlow-condensed*/package/files/barlow-condensed-latin-600-normal.woff2 "$OUT/fonts/"
+          for w in 400 500 600; do cp f/*ibm-plex-sans*/package/files/ibm-plex-sans-latin-$w-normal.woff2 "$OUT/fonts/"; done
+          cp f/*ibm-plex-mono*/package/files/ibm-plex-mono-latin-500-normal.woff2 "$OUT/fonts/"
+
+          # Barcode reader fallback (MIT) and its matching ZXing WebAssembly build
+          curl -fsSL -o "$OUT/barcode/ponyfill.mjs" "https://cdn.jsdelivr.net/npm/barcode-detector@3.0.8/dist/es/ponyfill.js/+esm"
+          ZV=$(node --input-type=module -e "const s=(await import('fs')).readFileSync('$OUT/barcode/ponyfill.mjs','utf8');const m=s.match(/zxing-wasm@([0-9]+\.[0-9]+\.[0-9]+)/);console.log(m?m[1]:'')")
+          if [ -z "$ZV" ]; then ZV=$(npm view barcode-detector@3.0.8 dependencies.zxing-wasm | tr -d '^~'); fi
+          echo "zxing-wasm $ZV"
+          npm pack "zxing-wasm@$ZV" --silent
+          mkdir zx && tar xzf zxing-wasm-*.tgz -C zx
+          cp "$(find zx -name 'zxing_reader.wasm' | head -1)" "$OUT/barcode/"
+          echo "$ZV" > "$OUT/barcode/ZXING_VERSION"
+
+          cd "$OUT" && find . -type f | sort > MANIFEST && du -sh .
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor
+          git diff --cached --quiet && echo "No changes" || (git commit -m "Vendor third-party assets" && git push)
