@@ -92,7 +92,7 @@ td.num,th.num{text-align:right}
 <div class="wrap">
   <header>
     <h1>Form<span>IQ</span></h1>
-    <div class="sub">Camera rep counter and form scoring. Video stays on your device. · v1.1</div>
+    <div class="sub">Camera rep counter and form scoring. Video stays on your device. · v1.2</div>
   </header>
 
   <div class="grid">
@@ -117,6 +117,12 @@ td.num,th.num{text-align:right}
         <input id="videoFile" type="file" accept="video/*" hidden>
         <button id="endSetBtn" disabled>Finish set</button>
         <button id="voiceBtn" aria-pressed="true">Voice: on</button>
+        <label class="field" for="quality">Tracking
+          <select id="quality">
+            <option value="lite">Fast</option>
+            <option value="full" selected>Balanced</option>
+            <option value="heavy">Accurate</option>
+          </select></label>
       </div>
       <p class="note" id="status">Pose model loads the first time you start (about 6 MB).</p>
     </section>
@@ -169,7 +175,21 @@ const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
 /* ---------- landmark helpers ---------- */
 const L={ls:11,rs:12,le:13,re:14,lw:15,rw:16,lh:23,rh:24,lk:25,rk:26,la:27,ra:28};
 const angle=(a,b,c)=>{const ab=Math.atan2(a.y-b.y,a.x-b.x),cb=Math.atan2(c.y-b.y,c.x-b.x);let d=Math.abs((ab-cb)*180/Math.PI);return d>180?360-d:d;};
-const vis=(lm,ids)=>ids.every(i=>(lm[i].visibility??1)>0.5);
+const VIS=0.35;
+const vis=(lm,ids)=>ids.every(i=>(lm[i].visibility??1)>VIS);
+/* 3D joint angle from MediaPipe world landmarks (metres, hip-centred) so camera angle distorts less */
+const angle3=(a,b,c)=>{const u=[a.x-b.x,a.y-b.y,a.z-b.z],v=[c.x-b.x,c.y-b.y,c.z-b.z];
+  const d=u[0]*v[0]+u[1]*v[1]+u[2]*v[2],m=Math.hypot(...u)*Math.hypot(...v)||1;return Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI;};
+let W=null, IMG=null;
+const A=(s,a,b,c)=>{const i=L[s+a],j=L[s+b],k=L[s+c];return W?angle3(W[i],W[j],W[k]):angle(IMG[i],IMG[j],IMG[k]);};
+/* One Euro filter: removes jitter when still, stays responsive when moving fast */
+class OneEuro{constructor(mc=1.2,beta=0.03,dc=1){this.mc=mc;this.beta=beta;this.dc=dc;this.x=null;this.dx=0;this.t=0;}
+  a(c,dt){const r=2*Math.PI*c*dt;return r/(r+1);}
+  f(x,t){if(this.x==null){this.x=x;this.t=t;return x;}const dt=Math.max(1e-3,(t-this.t)/1000);this.t=t;
+    const dx=(x-this.x)/dt;this.dx+=this.a(this.dc,dt)*(dx-this.dx);const c=this.mc+this.beta*Math.abs(this.dx);this.x+=this.a(c,dt)*(x-this.x);return this.x;}}
+let filters={};
+function smoothLm(key,lm,t,mc,beta){const F=filters[key]||(filters[key]=lm.map(()=>({x:new OneEuro(mc,beta),y:new OneEuro(mc,beta),z:new OneEuro(mc,beta)})));
+  return lm.map((p,i)=>({x:F[i].x.f(p.x,t),y:F[i].y.f(p.y,t),z:F[i].z.f(p.z,t),visibility:p.visibility}));}
 const side=(lm)=>{const l=[11,13,15,23,25,27].reduce((s,i)=>s+(lm[i].visibility??0),0),r=[12,14,16,24,26,28].reduce((s,i)=>s+(lm[i].visibility??0),0);return l>=r?"l":"r";};
 const P=(lm,s,n)=>lm[L[s+n]];
 
@@ -177,32 +197,33 @@ const P=(lm,s,n)=>lm[L[s+n]];
    metric(lm) -> {angle, ok, extra}. start: which end of the range a rep starts from.
    lo/hi are hysteresis thresholds; target is the ideal extreme for full range. */
 const EX={
-  squat:{name:"Squat",hint:"side view",start:"high",lo:105,hi:160,target:90,worst:125,
+  squat:{name:"Squat",hint:"side view",start:"high",lo:105,hi:155,target:90,worst:125,
     need:s=>[s+"h",s+"k",s+"a",s+"s"],
-    metric(lm,s){const h=P(lm,s,"h"),k=P(lm,s,"k"),a=P(lm,s,"a"),sh=P(lm,s,"s");
+    metric(lm,s){const h=P(lm,s,"h"),sh=P(lm,s,"s");
       const lean=Math.abs(Math.atan2(sh.x-h.x,h.y-sh.y)*180/Math.PI);
-      return {angle:angle(h,k,a),lean};},
+      return {angle:A(s,"h","k","a"),lean};},
     faults(f){const out=[];if(f.maxLean>50)out.push("Chest up, too much forward lean");return out;},
     track(f,m,phase){if(phase==="bottom")f.maxLean=Math.max(f.maxLean||0,m.lean);}},
   pushup:{name:"Push-up",hint:"side view",start:"high",lo:95,hi:155,target:80,worst:115,
     need:s=>[s+"s",s+"e",s+"w",s+"h",s+"a"],
-    metric(lm,s){return {angle:angle(P(lm,s,"s"),P(lm,s,"e"),P(lm,s,"w")),line:angle(P(lm,s,"s"),P(lm,s,"h"),P(lm,s,"a"))};},
+    metric(lm,s){return {angle:A(s,"s","e","w"),line:A(s,"s","h","a")};},
     faults(f){const o=[];if(f.minLine<155)o.push("Keep hips in line with shoulders and ankles");return o;},
     track(f,m){f.minLine=Math.min(f.minLine??180,m.line);}},
   curl:{name:"Bicep curl",hint:"face camera",start:"high",lo:60,hi:145,target:40,worst:80,
     need:s=>[s+"s",s+"e",s+"w",s+"h"],
     metric(lm,s){const sh=P(lm,s,"s"),e=P(lm,s,"e"),h=P(lm,s,"h");const torso=Math.hypot(sh.x-h.x,sh.y-h.y)||1;
-      return {angle:angle(sh,e,P(lm,s,"w")),drift:Math.abs(e.x-sh.x)/torso};},
+      return {angle:A(s,"s","e","w"),drift:Math.abs(e.x-sh.x)/torso};},
     faults(f){const o=[];if(f.maxDrift>0.35)o.push("Pin elbows to your sides");return o;},
     track(f,m){f.maxDrift=Math.max(f.maxDrift||0,m.drift);}},
   press:{name:"Overhead press",hint:"face camera",start:"low",lo:95,hi:155,target:170,worst:145,
     need:s=>[s+"s",s+"e",s+"w",s+"h"],
-    metric(lm,s){return {angle:angle(P(lm,s,"s"),P(lm,s,"e"),P(lm,s,"w"))};},
+    metric(lm,s){return {angle:A(s,"s","e","w")};},
     faults(){return [];},
     track(){}},
 };
 
 /* ---------- state ---------- */
+let fps=0,fpsN=0,fpsT=performance.now();
 let landmarker=null, stream=null, facing="user", running=false, voice=true, lastTs=-1;
 let exKey="squat";
 let rep=newRepState(), set=newSet(), sets=[], restTimer=null, smooth=null, lastRepAt=0;
@@ -232,9 +253,9 @@ function scoreRep(def,r){
 function analyze(lm){
   const def=EX[exKey], s=side(lm);
   const need=def.need(s).map(n=>L[n]);
-  if(!vis(lm,need)){setPhase("Not in frame");hud([["Step back so your "+(def.hint==="side view"?"full body is visible from the side":"upper body is visible"),"warn"]]);return;}
+  if(!vis(lm,need)){setPhase("Not in frame");hud([[fps+" fps",""],["Step back so your "+(def.hint==="side view"?"full body is visible from the side":"upper body is visible"),"warn"]]);return;}
   const m=def.metric(lm,s);
-  smooth = smooth==null? m.angle : smooth*0.6 + m.angle*0.4;
+  smooth = smooth==null? m.angle : smooth*0.3 + m.angle*0.7;
   const a=smooth;
   const atStart = def.start==="high" ? a>=def.hi : a<=def.lo;
   const atEnd   = def.start==="high" ? a<=def.lo : a>=def.hi;
@@ -251,7 +272,7 @@ function analyze(lm){
   const prog = def.start==="high" ? (def.hi-a)/(def.hi-def.target) : (a-def.lo)/(def.target-def.lo);
   $("romBar").style.width=Math.max(0,Math.min(1,prog))*100+"%";
   setPhase(rep.phase==="start"?"Ready":rep.phase==="bottom"?"Return":"Moving");
-  hud([[`${Math.round(a)}°`,""]]);
+  hud([[`${Math.round(a)}°`,""],[fps+" fps",fps&&fps<12?"warn":""]]);
 }
 
 function countRep(def){
@@ -330,11 +351,15 @@ function speak(t){if(!voice||!("speechSynthesis" in window))return;speechSynthes
 $("voiceBtn").onclick=()=>{voice=!voice;$("voiceBtn").textContent="Voice: "+(voice?"on":"off");$("voiceBtn").setAttribute("aria-pressed",voice);};
 
 /* ---------- pose model ---------- */
+const MODELS={lite:"pose_landmarker_lite",full:"pose_landmarker_full",heavy:"pose_landmarker_heavy"};
+let modelKey=(()=>{try{return localStorage.getItem("formiq.quality")||"full"}catch{return "full"}})();
+let visionFiles=null;
 async function loadModel(){
   if(landmarker) return;
-  $("status").textContent="Loading pose model…";
-  const files=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-  const opts=d=>({baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:d},runningMode:"VIDEO",numPoses:1});
+  $("status").textContent=`Loading ${$("quality").selectedOptions[0].text.toLowerCase()} tracking model…`;
+  const files=visionFiles||(visionFiles=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"));
+  const opts=d=>({baseOptions:{modelAssetPath:`https://storage.googleapis.com/mediapipe-models/pose_landmarker/${MODELS[modelKey]}/float16/1/${MODELS[modelKey]}.task`,delegate:d},runningMode:"VIDEO",numPoses:1,
+    minPoseDetectionConfidence:0.5,minPosePresenceConfidence:0.4,minTrackingConfidence:0.4});
   try{landmarker=await PoseLandmarker.createFromOptions(files,opts("GPU"));}
   catch{
     try{landmarker=await PoseLandmarker.createFromOptions(files,opts("CPU"));}
@@ -349,9 +374,9 @@ function draw(lm){
   if(!lm) return;
   const W=canvas.width,H=canvas.height;
   ctx.lineWidth=Math.max(3,W/180); ctx.strokeStyle="rgba(60,207,142,.9)"; ctx.lineCap="round";
-  BONES.forEach(([a,b])=>{if((lm[a].visibility??1)<.5||(lm[b].visibility??1)<.5)return;ctx.beginPath();ctx.moveTo(lm[a].x*W,lm[a].y*H);ctx.lineTo(lm[b].x*W,lm[b].y*H);ctx.stroke();});
+  BONES.forEach(([a,b])=>{if((lm[a].visibility??1)<VIS||(lm[b].visibility??1)<VIS)return;ctx.beginPath();ctx.moveTo(lm[a].x*W,lm[a].y*H);ctx.lineTo(lm[b].x*W,lm[b].y*H);ctx.stroke();});
   ctx.fillStyle="#fff";
-  [11,12,13,14,15,16,23,24,25,26,27,28].forEach(i=>{if((lm[i].visibility??1)<.5)return;ctx.beginPath();ctx.arc(lm[i].x*W,lm[i].y*H,ctx.lineWidth*1.2,0,7);ctx.fill();});
+  [11,12,13,14,15,16,23,24,25,26,27,28].forEach(i=>{if((lm[i].visibility??1)<VIS)return;ctx.beginPath();ctx.arc(lm[i].x*W,lm[i].y*H,ctx.lineWidth*1.2,0,7);ctx.fill();});
 }
 
 function loop(){
@@ -362,9 +387,12 @@ function loop(){
     let res;
     try{ res=landmarker.detectForVideo(video,performance.now()); }
     catch(err){ $("status").textContent="Pose tracking error: "+(err.message||err); requestAnimationFrame(loop); return; }
-    const lm=res.landmarks?.[0];
-    draw(lm);
-    if(lm) analyze(lm); else {setPhase("No person");hud([["No person detected","warn"]]);}
+    const t=performance.now(); fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
+    const raw=res.landmarks?.[0], rawW=res.worldLandmarks?.[0];
+    if(raw){
+      IMG=smoothLm("img",raw,t,1.7,0.8); W=rawW?smoothLm("world",rawW,t,1.7,0.8):null;
+      draw(IMG); analyze(IMG);
+    } else { filters={}; IMG=W=null; draw(null); setPhase("No person"); hud([["No person detected","warn"],[fps+" fps",""]]); }
   }
   requestAnimationFrame(loop);
 }
@@ -374,7 +402,7 @@ async function startCamera(){
   try{
     $("startBtn").disabled=true; $("camBtn").disabled=true;
     await loadModel();
-    stopSource();
+    stopSource(); filters={};
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
     video.srcObject=stream;
     await new Promise(r=>{ if(video.readyState>=1) r(); else video.onloadedmetadata=()=>r(); });
@@ -397,10 +425,17 @@ $("flipBtn").onclick=()=>{facing=facing==="user"?"environment":"user";startCamer
 $("endSetBtn").onclick=finishSet;
 $("videoFile").onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  await loadModel(); stopSource();
+  await loadModel(); stopSource(); filters={};
   video.srcObject=null; video.src=URL.createObjectURL(f); video.classList.remove("mirror"); canvas.classList.remove("mirror");
   video.onended=()=>{finishSet();running=false;$("status").textContent="Video analyzed.";};
   await video.play(); $("overlay").hidden=true; $("bigrep").hidden=false; running=true; lastTs=-1; loop();
+};
+$("quality").value=modelKey;
+$("quality").onchange=async()=>{
+  modelKey=$("quality").value; try{localStorage.setItem("formiq.quality",modelKey)}catch{}
+  const wasRunning=running; running=false;
+  try{landmarker?.close();}catch{} landmarker=null; filters={};
+  await loadModel(); if(wasRunning){running=true;lastTs=-1;loop();}
 };
 $("fileBtn").onclick=()=>$("videoFile").click();
 $("targetReps").oninput=()=>renderLive();
