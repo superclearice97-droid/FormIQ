@@ -112,7 +112,8 @@ function analyze(p) {
     nutrition = 60;
     for (const v of Object.values(L)) nutrition -= v === "high" ? 15 : v === "medium" ? 6 : 0;
     if (!drink && (n.kcal ?? 0) > 400) nutrition -= 8;
-    if (drink && (n.sugar ?? 0) > 5) nutrition -= 20;
+    if (drink && (n.sugar ?? 0) > 5) nutrition = Math.min(nutrition - 20, 10);   // sugary drinks rate like Nutri-Score D/E
+    if (p.nova_group == 4) nutrition -= 6;
     if ((n.fiber ?? 0) >= 6) nutrition += 4; if (!drink && (n.protein ?? 0) >= 8) nutrition += 4;
     nutrition = Math.max(0, Math.min(60, nutrition)); nutritionBasis = "nutrient levels";
   } else { nutrition = null; nutritionBasis = "not enough nutrition data"; }
@@ -191,7 +192,9 @@ async function getDetector() {
   if ("BarcodeDetector" in window) {
     try { const ok = await BarcodeDetector.getSupportedFormats(); if (fmts.some(f => ok.includes(f))) return detector = new BarcodeDetector({ formats: fmts }); } catch {}
   }
-  const mod = await import("https://cdn.jsdelivr.net/npm/barcode-detector@3.0.8/dist/es/ponyfill.js/+esm");
+  // self-hosted fallback for browsers without a built-in barcode reader (no third-party requests)
+  const mod = await import("./vendor/barcode/ponyfill.mjs");
+  mod.setZXingModuleOverrides({ locateFile: (path, prefix) => path.endsWith(".wasm") ? new URL("vendor/barcode/zxing_reader.wasm", location.href).href : prefix + path });
   return detector = new mod.BarcodeDetector({ formats: fmts });
 }
 async function startScan() {
@@ -273,7 +276,8 @@ function showProduct(it) {
     ${n.fiber != null ? `<tr><td>Fiber</td><td class="num">${n.fiber} g</td><td></td></tr>` : ""}${n.protein != null ? `<tr><td>Protein</td><td class="num">${n.protein} g</td><td></td></tr>` : ""}
     ${it.nova ? `<tr><td>Processing</td><td class="num">NOVA ${it.nova}</td><td></td></tr>` : ""}</table></div></details>
   <div class="controls" style="margin-top:12px"><label class="field" for="mealGrams">Portion <input id="mealGrams" type="number" min="1" max="2000" value="100"> ${it.drink ? "ml" : "g"}</label><button class="primary" id="addMeal">Add to meal</button></div>
-  <p class="attrib">Product data from <a href="https://world.openfoodfacts.org/product/${esc(it.code)}" target="_blank" rel="noopener">Open Food Facts</a> (ODbL), contributed by its community. Score and risks are FormIQ estimates, not medical advice.</p>`;
+  <p class="attrib">${it.est ? `Estimated from a photo by ${esc(it.estBy || "an AI model")}. Portion, nutrients and additives are guesses; confidence ${esc(it.confidence || "low")}. Score and risks are FormIQ estimates, not medical advice.` :
+    `Product data from <a href="https://world.openfoodfacts.org/product/${esc(it.code)}" target="_blank" rel="noopener">Open Food Facts</a> (ODbL), contributed by its community. Score and risks are FormIQ estimates, not medical advice.`}</p>`;
   $("product").hidden = false;
   $("addMeal").onclick = () => { const g = Math.max(1, +$("mealGrams").value || 100); meal.push({ code: it.code, g }); save(MEAL_KEY, meal); renderMeal(); setMsg(`Added ${g} ${it.drink ? "ml" : "g"} to your meal.`); };
   $("product").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
@@ -339,4 +343,9 @@ export function initFood() {
   $("clearLib").onclick = () => { const b = $("clearLib"); if (b.dataset.arm) { lib = []; save(LIB_KEY, lib); renderLib(); delete b.dataset.arm; b.textContent = "Clear"; } else { b.dataset.arm = 1; b.textContent = "Tap again to clear"; setTimeout(() => { delete b.dataset.arm; b.textContent = "Clear"; }, 3000); } };
   renderLib(); renderMeal();
 }
-export { analyze, mealSummary }; // exported for testing
+/* used by the optional photo module: save estimated items and optionally add them to the meal */
+export function addEstimated(items, toMeal) {
+  for (const it of items) { remember(it); if (toMeal) meal.push({ code: it.code, g: it.portion || 100 }); }
+  if (toMeal) save(MEAL_KEY, meal); renderMeal();
+}
+export { analyze, mealSummary, showProduct, setMsg }; // also used by tests

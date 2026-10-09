@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Terms of Use · FormIQ</title><style>
+@font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:500;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-display:swap;src:url(vendor/fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-display:swap;src:url(vendor/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
 :root{--bg:#f3f5f4;--surface:#fff;--line:#d9dfdc;--fg:#15201b;--muted:#5d6b64;--accent:#1f8a5b;color-scheme:light}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1311;--surface:#161d1a;--line:#27312c;--fg:#e7eee9;--muted:#93a39a;--accent:#3ccf8e;color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#0e1311;--surface:#161d1a;--line:#27312c;--fg:#e7eee9;--muted:#93a39a;--accent:#3ccf8e;color-scheme:dark}
@@ -12,10 +18,11 @@ a{color:var(--accent)}.meta{color:var(--muted);font-size:14px}.back{font-size:14
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
 .wrapx{overflow-x:auto}.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800&family=IBM+Plex+Sans:wght@400;600&display=swap"></head><body><main>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'none'; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer"></head><body><main>
 <a class="back" href="./">← Back to FormIQ</a>
 <h1>Terms of Use</h1>
-<p class="meta">Effective October 9, 2026 · Updated October 9, 2026 to cover the Food features</p>
+<p class="meta">Effective October 9, 2026 · Updated October 9, 2026 to cover the Food features and optional photo analysis</p>
 <p>By using FormIQ you agree to these terms. If you do not agree, do not use the app.</p>
 
 <h2>Not medical advice</h2>
@@ -25,6 +32,9 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <p>Food scores, pros and cons and “estimated health risks” are general information calculated by FormIQ's own method from public research and regulator findings. They describe a product in general, not its effect on you. They are not dietary, nutritional or medical advice, and they do not account for your health, medications, allergies, pregnancy or goals. Speak with a doctor or registered dietitian before changing your diet for a health reason.</p>
 <p>Product information comes from Open Food Facts, a database built by volunteers. It can be incomplete, out of date or wrong, and recipes change. <strong>Always read the ingredient list and allergen information on the package itself.</strong> Never rely on FormIQ to decide whether a food is safe for an allergy or intolerance.</p>
 <p>FormIQ is not affiliated with Open Food Facts, and food scores are FormIQ's own; they are not issued or endorsed by Nutri-Score, NOVA, IARC, WHO, any government or any food brand. Brand and product names belong to their owners.</p>
+
+<h2>Optional photo analysis</h2>
+<p>Photo meal analysis is optional and uses an AI provider and API key you choose. Your use of that provider is governed by your agreement with it, including any fees it charges you. AI estimates of foods, portions, nutrients, additives and allergens from a photo can be substantially wrong; treat them as rough guesses and never rely on them for allergies or medical diets. Do not send photos of other people, and only send photos you have the right to share. You are responsible for keeping your API key private; anyone using your device may be able to use a remembered key.</p>
 
 <h2>Exercise at your own risk</h2>
 <p>Physical exercise carries a risk of injury. You choose what exercises to do, how much weight to use and how hard to work, and you take responsibility for doing them safely. Stop immediately if you feel pain, dizziness, shortness of breath or discomfort. Set up your camera in a clear, stable spot with enough room to move, and make sure nothing you could trip on or knock over is nearby.</p>
