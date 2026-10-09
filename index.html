@@ -24,6 +24,7 @@
   --bg:#0e1311; --surface:#161d1a; --line:#27312c; --fg:#e7eee9; --muted:#93a39a;
   --accent:#3ccf8e; --accent-ink:#06130d; --warn:#f0a83a; --bad:#ff6b6b; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);padding:env(safe-area-inset-top,0) 16px env(safe-area-inset-bottom,0)}
 .wrap{max-width:1180px;margin:0 auto;padding-block:16px 40px;display:grid;gap:16px}
@@ -335,7 +336,10 @@ async function loadModel(){
   const files=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
   const opts=d=>({baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:d},runningMode:"VIDEO",numPoses:1});
   try{landmarker=await PoseLandmarker.createFromOptions(files,opts("GPU"));}
-  catch{landmarker=await PoseLandmarker.createFromOptions(files,opts("CPU"));}
+  catch{
+    try{landmarker=await PoseLandmarker.createFromOptions(files,opts("CPU"));}
+    catch(err){$("status").textContent="Couldn't load the pose model. Check your connection, or turn off Brave Shields for this site, and try again.";throw err;}
+  }
   $("status").textContent="Tracking. Keep your whole working limb in view.";
 }
 
@@ -355,7 +359,9 @@ function loop(){
   if(video.readyState>=2 && video.currentTime!==lastTs){
     lastTs=video.currentTime;
     if(canvas.width!==video.videoWidth){canvas.width=video.videoWidth;canvas.height=video.videoHeight;}
-    const res=landmarker.detectForVideo(video,performance.now());
+    let res;
+    try{ res=landmarker.detectForVideo(video,performance.now()); }
+    catch(err){ $("status").textContent="Pose tracking error: "+(err.message||err); requestAnimationFrame(loop); return; }
     const lm=res.landmarks?.[0];
     draw(lm);
     if(lm) analyze(lm); else {setPhase("No person");hud([["No person detected","warn"]]);}
@@ -370,7 +376,8 @@ async function startCamera(){
     await loadModel();
     stopSource();
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
-    video.srcObject=stream; video.removeAttribute("src"); video.loop=false;
+    video.srcObject=stream;
+    await new Promise(r=>{ if(video.readyState>=1) r(); else video.onloadedmetadata=()=>r(); });
     await video.play();
     const mirror=facing==="user"; video.classList.toggle("mirror",mirror); canvas.classList.toggle("mirror",mirror);
     $("overlay").hidden=true; $("bigrep").hidden=false; $("flipBtn").disabled=false; $("camBtn").textContent="Stop camera";
