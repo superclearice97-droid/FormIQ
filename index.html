@@ -85,6 +85,51 @@ td.num,th.num{text-align:right}
 .history details{border-top:1px solid var(--line);padding:8px 0}
 .history summary{cursor:pointer;font-weight:500}
 .note{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;width:fit-content;max-width:100%}
+.tabs button{border:0;background:transparent;padding:8px 18px;font:800 18px/1 var(--display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.food{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:860px){.food{grid-template-columns:minmax(0,1fr)}}
+.food form{display:flex;gap:8px;flex-wrap:wrap}
+.food input[type=search],.food input[inputmode]{flex:1 1 160px;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+#scanBox{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;max-width:100%}
+#scanBox video{width:100%;height:100%;object-fit:cover;display:block}
+#scanBox::after{content:"";position:absolute;left:12%;right:12%;top:38%;bottom:38%;border:2px solid #3ccf8e;border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+#foodMsg{font-size:13px;color:var(--muted);min-height:1.2em;margin:0}
+#foodMsg[data-bad="1"]{color:var(--bad)}
+.list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.list button,.mealitems li{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:8px 10px;font-weight:400}
+.mealitems{list-style:none;margin:8px 0;padding:0;display:grid;gap:4px}
+.mealitems li{border-bottom:1px solid var(--line);padding:6px 0}
+.mealitems li button{width:auto;margin-left:auto;padding:4px 10px;font-size:12px}
+.nm{display:grid;min-width:0;flex:1}.nm b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nm small{color:var(--muted);font-size:12px}
+.list img{border-radius:6px;object-fit:cover;flex:none}
+.sc{flex:none;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;text-align:center;text-indent:0;font:800 15px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sc.ex,.ring.ex{color:#1f9d55}.sc.gd,.ring.gd{color:#7cb342}.sc.pr,.ring.pr{color:#e08a00}.sc.bd,.ring.bd{color:#d64545}.sc.na,.ring.na{color:var(--muted)}
+.list .sc,.mealitems .sc{color:#fff}
+.sc.ex{background:#1f9d55}.sc.gd{background:#7cb342}.sc.pr{background:#e08a00}.sc.bd{background:#d64545}.sc.na{background:var(--muted)}
+.phead{display:flex;gap:12px;align-items:center}
+.phead img,.noimg{width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--line);flex:none}.noimg.sm{width:36px;height:36px;border-radius:6px}
+.pname{display:grid;flex:1;min-width:0}.pname strong{font-size:17px;line-height:1.3}.pname span{color:var(--muted);font-size:13px}
+.ring{flex:none}
+.verdict{margin:12px 0;padding:10px 12px;border-radius:10px;display:grid;gap:2px;background:color-mix(in srgb,currentColor 10%,transparent)}
+.verdict b{font:800 22px/1 var(--display);text-transform:uppercase;letter-spacing:.03em}.verdict span{font-size:12px;color:var(--muted)}
+.verdict.ex{color:#1f9d55}.verdict.gd{color:#6a9f30}.verdict.pr{color:#d07f00}.verdict.bd{color:#d64545}.verdict.na{color:var(--muted)}
+.pc{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media (max-width:420px){.pc{grid-template-columns:1fr}}
+.pc ul,.risks,.adds{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px;font-size:14px}
+.pro::before{content:"+ ";color:#1f9d55;font-weight:700}.con::before{content:"– ";color:#d64545;font-weight:700}
+.risks li,.adds li{display:flex;gap:10px;align-items:flex-start}.risks li div,.adds li div{display:grid}.risks span:not(.pill),.adds span:not(.pill){color:var(--muted);font-size:13px}
+.pill.ex,.pill.gd{background:color-mix(in srgb,#1f9d55 18%,transparent);color:#1f9d55}
+.pill.pr{background:color-mix(in srgb,#e08a00 20%,transparent);color:#d07f00}
+.pill.bd{background:color-mix(in srgb,#d64545 18%,transparent);color:#d64545}
+.pill.na{background:var(--line);color:var(--muted)}
+.pill{flex:none;min-width:72px;text-align:center;text-transform:capitalize}
+.lvl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}.lvl.high{color:#d64545}.lvl.medium{color:#d07f00}.lvl.low{color:#1f9d55}
+.allergy{margin:12px 0;padding:10px 12px;border-radius:10px;border:1px solid var(--warn);font-size:14px}
+details{margin-top:10px}details summary{cursor:pointer;font-weight:600;font-size:14px}
+.attrib{font-size:12px;color:var(--muted);margin:12px 0 0}.attrib a{color:inherit}
+.muted{color:var(--muted);font-size:13px}
 footer{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 footer a{color:var(--muted)}
 .modal{position:fixed;inset:0;background:rgba(5,8,7,.6);display:grid;place-items:center;padding:16px;z-index:10}
@@ -101,10 +146,37 @@ footer a{color:var(--muted)}
 <div class="wrap">
   <header>
     <h1>Form<span>IQ</span></h1>
-    <div class="sub">Camera rep counter and form scoring. Video stays on your device. · v1.3</div>
+    <div class="sub">Form tracking, rep counting and food scores. Camera video stays on your device. · v1.4</div>
   </header>
 
-  <div class="grid">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabWorkout" aria-selected="true" aria-controls="workoutView">Workout</button>
+    <button role="tab" id="tabFood" aria-selected="false" aria-controls="foodView">Food</button>
+  </div>
+
+  <div class="food" id="foodView" role="tabpanel" aria-labelledby="tabFood" hidden>
+    <section style="display:grid;gap:12px;min-width:0">
+      <div class="panel" style="display:grid;gap:10px">
+        <div class="controls"><button class="primary" id="scanBtn">Scan a barcode</button></div>
+        <div id="scanBox" hidden><video id="scanVideo" playsinline muted></video></div>
+        <form id="codeForm"><input id="codeInput" inputmode="numeric" autocomplete="off" placeholder="Or type the barcode number" aria-label="Barcode number"><button type="submit">Look up</button></form>
+        <form id="searchForm"><input id="searchInput" type="search" placeholder="Search foods by name or brand" aria-label="Search foods"><button type="submit">Search</button></form>
+        <p id="foodMsg" role="status"></p>
+        <ul class="list" id="results"></ul>
+      </div>
+      <div class="panel" id="product" hidden></div>
+    </section>
+    <aside class="rail">
+      <div class="panel"><div class="label">Meal</div><div id="mealBox"></div></div>
+      <div class="panel">
+        <div class="row"><div class="label">Food library</div><button id="clearLib">Clear</button></div>
+        <input id="libFilter" type="search" placeholder="Filter saved foods" aria-label="Filter saved foods" style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
+        <ul class="list" id="libList"></ul>
+      </div>
+    </aside>
+  </div>
+
+  <div class="grid" id="workoutView" role="tabpanel" aria-labelledby="tabWorkout">
     <section style="display:grid;gap:12px;min-width:0">
       <div class="stage" id="stage">
         <video id="video" playsinline muted></video>
@@ -180,8 +252,8 @@ footer a{color:var(--muted)}
   <div class="card">
     <h2 id="consentTitle">Before you start</h2>
     <ul>
-      <li>FormIQ gives automated form feedback. It is <strong>not medical advice</strong> and can be wrong. Check with a doctor before starting a new program, and stop if anything hurts.</li>
-      <li>Your camera is analyzed <strong>on this device only</strong>. Video is never recorded or uploaded. Workout history stays in this browser.</li>
+      <li>FormIQ gives automated form feedback and food scores. They are <strong>not medical or dietary advice</strong> and can be wrong. Always check allergens on the package. Check with a doctor before starting a new program, and stop if anything hurts.</li>
+      <li>Your camera is analyzed <strong>on this device only</strong>. Video is never recorded or uploaded. Barcodes and food searches are looked up on Open Food Facts. Workout and food history stay in this browser.</li>
       <li>Clear the space around you and set the camera somewhere stable.</li>
     </ul>
     <label for="consentBox"><input type="checkbox" id="consentBox"> I have read and agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and I exercise at my own risk.</label>
@@ -191,6 +263,7 @@ footer a{color:var(--muted)}
 
 <script type="module">
 import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+import { initFood } from "./food.js?v=14";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -448,7 +521,7 @@ function loop(){
 function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(()=>loop()); else requestAnimationFrame(loop); }
 
 /* ---------- consent (shown once per browser, again if the terms version changes) ---------- */
-const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-09";
+const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-09b";
 function hasConsent(){try{return localStorage.getItem(CONSENT_KEY)===CONSENT_VER}catch{return false}}
 function ensureConsent(){
   if(hasConsent()) return Promise.resolve(true);
@@ -461,9 +534,22 @@ function ensureConsent(){
   });
 }
 
+window.formiqEnsureConsent=ensureConsent;
+
+/* ---------- tabs ---------- */
+function showTab(name){
+  $("tabWorkout").setAttribute("aria-selected",name==="workout"); $("tabFood").setAttribute("aria-selected",name==="food");
+  $("workoutView").hidden=name!=="workout"; $("foodView").hidden=name!=="food";
+  if(name!=="workout") document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"food"}));
+  try{history.replaceState(null,"",name==="food"?"#food":location.pathname+location.search)}catch{}
+}
+$("tabWorkout").onclick=()=>showTab("workout"); $("tabFood").onclick=()=>showTab("food");
+document.addEventListener("formiq:camera",e=>{ if(e.detail!=="workout" && running && stream){ stopSource(); $("camBtn").textContent="Start camera"; $("flipBtn").disabled=true; finishSet(); } });
+
 /* ---------- sources ---------- */
 async function startCamera(){
   if(!await ensureConsent()) return;
+  document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"workout"}));
   try{
     $("startBtn").disabled=true; $("camBtn").disabled=true;
     await loadModel();
@@ -511,6 +597,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 video.addEventListener("playing",wake);
 
 renderEx(); renderLive(); renderSets(); renderHistory();
+initFood(); if(location.hash==="#food") showTab("food");
 </script>
 </body>
 </html>

@@ -15,8 +15,8 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800&family=IBM+Plex+Sans:wght@400;600&display=swap"></head><body><main>
 <a class="back" href="./">← Back to FormIQ</a>
 <h1>Privacy Policy</h1>
-<p class="meta">Effective October 9, 2026</p>
-<div class="box"><strong>Short version:</strong> FormIQ analyzes your camera on your own device. Video and body-tracking data are never uploaded, stored on a server, sold or shared. There are no accounts, ads, analytics or tracking cookies.</div>
+<p class="meta">Effective October 9, 2026 · Updated October 9, 2026 to cover the Food features</p>
+<div class="box"><strong>Short version:</strong> FormIQ analyzes your camera on your own device. Video and body-tracking data are never uploaded, stored on a server, sold or shared. When you look up a food, only the barcode number or search words are sent to Open Food Facts. There are no accounts, ads, analytics or tracking cookies.</div>
 
 <h2>Who runs FormIQ</h2>
 <p>FormIQ is an independent project published by its developer (GitHub user superclearice97-droid) at superclearice97-droid.github.io/FormIQ. Questions or requests: open an issue at <a href="https://github.com/superclearice97-droid/FormIQ/issues">https://github.com/superclearice97-droid/FormIQ/issues</a>.</p>
@@ -25,15 +25,19 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <p>When you tap Start camera, your browser asks for permission. If you allow it, video frames go to a pose-tracking model that runs inside your browser on your device. Frames are analyzed and discarded right away. They are not recorded, saved or sent anywhere. The same applies to a video file you choose with Analyze a video: it is read on your device and never uploaded.</p>
 <p>The tracker estimates the positions of body joints (shoulders, elbows, hips, knees and so on) to measure joint angles. It does not identify who you are, does not use facial recognition, and keeps no body or face measurements after each frame is processed.</p>
 
+<h2>Food scanning and search</h2>
+<p>The barcode scanner reads the barcode on your device; camera frames are not saved or sent anywhere. To show product details, the app sends <strong>only the barcode number</strong> (or the words you type into food search) to Open Food Facts, an open food database run by a non-profit. Product photos are loaded from Open Food Facts' image servers. These requests include your IP address and browser information, as any web request does, and are handled under the <a href="https://world.openfoodfacts.org/privacy">Open Food Facts privacy policy</a>. FormIQ does not send them your workouts, meals, health information or anything that identifies you.</p>
+
 <h2>Workout history and settings</h2>
-<p>Saved workouts (exercise, reps, accuracy score and the main form cue for each set) and your settings are stored in your browser's local storage on your device. They are never sent to us. You can delete your history with the Clear button in the app, or by clearing this site's data in your browser settings.</p>
+<p>Saved workouts (exercise, reps, accuracy score and the main form cue for each set), your food library (products you looked up and their scores), meals you build and your settings are stored in your browser's local storage on your device. They are never sent to us. You can delete your history with the Clear button in the app, or by clearing this site's data in your browser settings.</p>
 
 <h2>Services that load parts of the app</h2>
 <p>To run, the app loads files from the services below. As with any website, these providers receive your IP address and standard browser information (such as user agent) when your browser downloads those files, under their own privacy policies. FormIQ does not send them any camera, body or workout data.</p>
 <div class="wrapx"><table>
 <tr><th>Service</th><th>What it delivers</th></tr>
 <tr><td>GitHub Pages (GitHub, Inc.)</td><td>Hosts the app itself. <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a></td></tr>
-<tr><td>jsDelivr</td><td>The MediaPipe tracking library. <a href="https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net">jsDelivr Privacy Policy</a></td></tr>
+<tr><td>Open Food Facts</td><td>Product information and photos, looked up by barcode or search words. <a href="https://world.openfoodfacts.org/privacy">Open Food Facts privacy policy</a></td></tr>
+<tr><td>jsDelivr</td><td>The MediaPipe tracking library and, on browsers without built-in barcode support, the barcode reader. <a href="https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net">jsDelivr Privacy Policy</a></td></tr>
 <tr><td>Google Cloud Storage (Google LLC)</td><td>The pose-tracking model file. <a href="https://policies.google.com/privacy">Google Privacy Policy</a></td></tr>
 <tr><td>Google Fonts (Google LLC)</td><td>Typefaces. <a href="https://developers.google.com/fonts/faq/privacy">Google Fonts privacy FAQ</a></td></tr>
 </table></div>
@@ -42,7 +46,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <p>Spoken rep counts use your browser's built-in speech feature. Depending on your browser and device, speech may be generated by your operating system or a voice service your browser uses. Turn it off with the Voice button.</p>
 
 <h2>What we do not do</h2>
-<p>We do not collect, sell or share personal information, consumer health data or biometric identifiers. We do not use cookies for tracking or advertising, and we do not build profiles.</p>
+<p>We do not collect, sell or share personal information, consumer health data or biometric identifiers. Your food choices and meals never leave your device. We do not use cookies for tracking or advertising, and we do not build profiles.</p>
 
 <h2>Children</h2>
 <p>FormIQ is not directed at children under 13, and we do not knowingly collect information from anyone. Because the app keeps no data off your device, there is nothing for us to delete; a parent can clear the app's data in the browser.</p>
