@@ -22,7 +22,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <meta name="referrer" content="no-referrer"></head><body><main>
 <a class="back" href="./">← Back to FormIQ</a>
 <h1>Privacy Policy</h1>
-<p class="meta">Effective October 9, 2026 · Updated October 9, 2026 to cover the Food features, self-hosting and optional photo analysis</p>
+<p class="meta">Effective October 9, 2026 · Updated October 9, 2026 to cover the Food features, self-hosting, optional photo analysis, and Activity (steps, goals and connections)</p>
 <div class="box"><strong>Short version:</strong> FormIQ analyzes your camera on your own device. Video and body-tracking data are never uploaded, stored on a server, sold or shared. When you look up a food, only the barcode number or search words are sent to Open Food Facts. Photo meal analysis is off unless you turn it on with your own AI key. There are no accounts, ads, analytics or tracking cookies, and the app loads all of its code, fonts and models from its own site.</div>
 
 <h2>Who runs FormIQ</h2>
@@ -37,6 +37,16 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 
 <h2>Workout history and settings</h2>
 <p>Saved workouts (exercise, reps, accuracy score and the main form cue for each set), your food library (products you looked up and their scores), meals you build and your settings are stored in your browser's local storage on your device. They are never sent to us. You can delete individual lists with their Clear buttons, erase everything FormIQ stored on this device with <strong>Delete all my data</strong> at the bottom of the app, or clear this site's data in your browser settings.</p>
+
+<h2>Steps, goals and connections</h2>
+<ul>
+<li><strong>Step counting</strong> uses your phone's motion sensor only while FormIQ is open and you've tapped Count steps. Motion readings are turned into a step count on your device and immediately discarded.</li>
+<li><strong>Apple Health and CSV imports</strong> (Google Takeout, Samsung Health and others) are read entirely on your device. The file is never uploaded. FormIQ keeps only daily step totals and basic workout details (type, date, duration, distance, energy) from the last year, and ignores everything else in the file, such as heart rate or medical records.</li>
+<li><strong>Treadmills and bikes</strong> (FitShow and other Bluetooth fitness machines) connect directly to your device over Bluetooth. No internet is involved.</li>
+<li><strong>Strava</strong> is optional. You connect it with your own Strava API application, whose Client ID, Client Secret and access tokens are stored only on this device. When you sync, FormIQ downloads your activities from the last 60 days and, if you leave the option on, sends your FormIQ strength workouts (exercise names, sets, reps, time and duration) to your Strava account. Strava handles that data under the <a href="https://www.strava.com/legal/privacy">Strava Privacy Policy</a>. Disconnect revokes FormIQ's access at Strava and deletes the keys and synced activities from this device.</li>
+<li><strong>Goals</strong> and daily totals are stored only on this device.</li>
+<li><strong>Export my data</strong> downloads everything FormIQ stores on this device as a file, so you can keep or move it. API keys and tokens are left out of the file.</li>
+</ul>
 
 <h2>Optional photo meal analysis</h2>
 <p>This feature is <strong>off by default</strong> and only works if you turn it on and enter your own API key for an AI provider (Anthropic's Claude or Google's Gemini). When it is on:</p>
@@ -56,6 +66,7 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 <tr><th>Service</th><th>When</th><th>What it receives</th></tr>
 <tr><td>GitHub Pages (GitHub, Inc.)</td><td>Every visit (hosting)</td><td>Standard web request data such as IP address. <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a></td></tr>
 <tr><td>Open Food Facts</td><td>Only when you look up or search for a food</td><td>The barcode number or search words, plus IP address. Product photos load from its image server. <a href="https://world.openfoodfacts.org/privacy">Privacy policy</a></td></tr>
+<tr><td>Strava</td><td>Only if you connect it and sync</td><td>Your API keys and tokens, the activities you send, plus IP address. <a href="https://www.strava.com/legal/privacy">Strava Privacy Policy</a></td></tr>
 <tr><td>Anthropic or Google (your choice)</td><td>Only if you turn on photo analysis and tap Send</td><td>The reduced meal photo, your API key, plus IP address. Links above.</td></tr>
 </table></div>
 

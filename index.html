@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101418">
 <title>FormIQ</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
@@ -136,6 +136,22 @@ td.num,th.num{text-align:right}
 details{margin-top:10px}details summary{cursor:pointer;font-weight:600;font-size:14px}
 .attrib{font-size:12px;color:var(--muted);margin:12px 0 0}.attrib a{color:inherit}
 .muted{color:var(--muted);font-size:13px}
+.today{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.todaybody{flex:1 1 200px;display:grid;gap:8px;min-width:0}
+.bigring{color:var(--accent);flex:none}.bigring.done{color:#1f9d55}
+.streak{margin:0;font-weight:600}
+.sources{list-style:none;margin:0;padding:0;display:grid;gap:2px;font-size:13px}
+.sources li{display:flex;justify-content:space-between;gap:8px;color:var(--muted)}.sources b{color:var(--fg);font-variant-numeric:tabular-nums}
+.formrow{display:flex;gap:8px;flex-wrap:wrap}.formrow input{flex:1 1 120px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.goals{display:grid;gap:8px;margin-top:8px}.goals .field{justify-content:space-between}.goals input{width:96px}
+.conn{display:grid;gap:8px}.conn p{margin:0}.conn button{justify-self:start}
+.steps{margin:8px 0;padding-left:20px;font-size:13px;display:grid;gap:4px}.steps code{font-family:var(--mono);font-size:12px;word-break:break-all}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:13px}.check input{margin-top:3px;accent-color:var(--accent)}
+.actlist{list-style:none;margin:8px 0 0;padding:0;display:grid}
+.actlist li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.actlist .num{color:var(--muted);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.stat b small{font-size:.5em;opacity:.6}
+#actMsg{font-size:13px;color:var(--muted);margin:0;min-height:1.2em}#actMsg[data-bad="1"]{color:var(--bad)}
 footer{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 footer a{color:var(--muted)}
 .linkbtn{border:0;background:none;padding:0;font:inherit;font-size:13px;color:var(--muted);text-decoration:underline;cursor:pointer;font-weight:400}
@@ -158,12 +174,13 @@ footer a{color:var(--muted)}
 <div class="wrap">
   <header>
     <h1>Form<span>IQ</span></h1>
-    <div class="sub">Form tracking, rep counting and food scores. Camera video stays on your device. · v1.5</div>
+    <div class="sub">Form tracking, food scores, steps and goals. Your data stays on your device. · v1.6</div>
   </header>
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tabWorkout" aria-selected="true" aria-controls="workoutView">Workout</button>
     <button role="tab" id="tabFood" aria-selected="false" aria-controls="foodView">Food</button>
+    <button role="tab" id="tabActivity" aria-selected="false" aria-controls="activityView">Activity</button>
   </div>
 
   <div class="food" id="foodView" role="tabpanel" aria-labelledby="tabFood" hidden>
@@ -185,6 +202,68 @@ footer a{color:var(--muted)}
         <div class="row"><div class="label">Food library</div><button id="clearLib">Clear</button></div>
         <input id="libFilter" type="search" placeholder="Filter saved foods" aria-label="Filter saved foods" style="width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">
         <ul class="list" id="libList"></ul>
+      </div>
+    </aside>
+  </div>
+
+  <div class="food" id="activityView" role="tabpanel" aria-labelledby="tabActivity" hidden>
+    <section style="display:grid;gap:12px;min-width:0">
+      <div class="panel today">
+        <div id="stepRing"></div>
+        <div class="todaybody">
+          <div class="label">Today</div>
+          <p id="stepStreak" class="streak"></p>
+          <ul class="sources" id="stepSources"></ul>
+          <div class="controls"><button class="primary" id="countBtn" aria-pressed="false">Count steps now</button></div>
+          <form id="addStepsForm" class="formrow"><input id="addSteps" inputmode="numeric" placeholder="Add steps by hand" aria-label="Steps to add"><button type="submit">Add</button></form>
+        </div>
+      </div>
+      <p id="actMsg" role="status"></p>
+      <div class="panel">
+        <div class="label">This week</div>
+        <div id="weekChart" style="margin-top:8px"></div>
+        <div class="stats" id="weekStats"></div>
+      </div>
+      <div class="panel">
+        <div class="label">Recent activity</div>
+        <ul class="actlist" id="actList"></ul>
+      </div>
+    </section>
+    <aside class="rail">
+      <div class="panel">
+        <div class="label">Goals</div>
+        <div class="goals">
+          <label class="field" for="goalSteps">Daily steps <input id="goalSteps" type="number" min="500" max="100000" step="500"></label>
+          <label class="field" for="goalWorkouts">Workouts a week <input id="goalWorkouts" type="number" min="1" max="21"></label>
+          <label class="field" for="goalMinutes">Active minutes a week <input id="goalMinutes" type="number" min="10" max="2000" step="10"></label>
+        </div>
+      </div>
+      <div class="panel conn">
+        <div class="label">Apple Health</div>
+        <p class="muted">On your iPhone: Health app → your picture → Export All Health Data. Then choose the export.zip (or export.xml) here. It's read on this device only.</p>
+        <button type="button" onclick="document.getElementById('appleFile').click()">Import Health export</button>
+        <input id="appleFile" type="file" accept=".zip,.xml,application/zip,text/xml" hidden>
+      </div>
+      <div class="panel conn">
+        <div class="label">Google Fit, Samsung Health, others</div>
+        <p class="muted">Import a steps CSV: Google Takeout → Fit → “Daily activity metrics.csv”, or Samsung Health → Settings → Download personal data. Read on this device only.</p>
+        <button type="button" onclick="document.getElementById('csvFile').click()">Import steps CSV</button>
+        <input id="csvFile" type="file" accept=".csv,text/csv" multiple hidden>
+      </div>
+      <div class="panel conn">
+        <div class="label">Strava</div>
+        <div id="stravaBox"></div>
+      </div>
+      <div class="panel conn">
+        <div class="label">FitShow treadmills and bikes</div>
+        <p class="muted">Connect over Bluetooth to FitShow and other machines that use the standard fitness-machine protocol. Data goes straight to this device.</p>
+        <button type="button" id="machineBtn">Connect treadmill or bike</button>
+        <div class="stats" id="machineLive" hidden></div>
+      </div>
+      <div class="panel conn">
+        <div class="label">Your data</div>
+        <p class="muted">Download everything FormIQ stores on this device as a file. Keys and passwords are left out.</p>
+        <button type="button" id="exportBtn">Export my data</button>
       </div>
     </aside>
   </div>
@@ -266,7 +345,7 @@ footer a{color:var(--muted)}
     <h2 id="consentTitle">Before you start</h2>
     <ul>
       <li>FormIQ gives automated form feedback and food scores. They are <strong>not medical or dietary advice</strong> and can be wrong. Always check allergens on the package. Check with a doctor before starting a new program, and stop if anything hurts.</li>
-      <li>Your camera is analyzed <strong>on this device only</strong>. Video is never recorded or uploaded. Barcodes and food searches are looked up on Open Food Facts. Workout and food history stay in this browser.</li>
+      <li>Your camera is analyzed <strong>on this device only</strong>. Video is never recorded or uploaded. Barcodes and food searches are looked up on Open Food Facts. Workout, food and step history stay in this browser. Strava and photo analysis are off unless you connect them.</li>
       <li>Clear the space around you and set the camera somewhere stable.</li>
     </ul>
     <label for="consentBox"><input type="checkbox" id="consentBox"> I have read and agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and I exercise at my own risk.</label>
@@ -301,6 +380,7 @@ footer a{color:var(--muted)}
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
 import { initFood } from "./food.js?v=15";
 import { initAI } from "./ai.js?v=15";
+import { initActivity } from "./activity.js?v=16";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -558,7 +638,7 @@ function loop(){
 function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(()=>loop()); else requestAnimationFrame(loop); }
 
 /* ---------- consent (shown once per browser, again if the terms version changes) ---------- */
-const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-09c";
+const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-09d";
 function hasConsent(){try{return localStorage.getItem(CONSENT_KEY)===CONSENT_VER}catch{return false}}
 function ensureConsent(){
   if(hasConsent()) return Promise.resolve(true);
@@ -574,14 +654,15 @@ function ensureConsent(){
 window.formiqEnsureConsent=ensureConsent;
 
 /* ---------- tabs ---------- */
+const TABS=["workout","food","activity"];
 function showTab(name){
-  $("tabWorkout").setAttribute("aria-selected",name==="workout"); $("tabFood").setAttribute("aria-selected",name==="food");
-  $("workoutView").hidden=name!=="workout"; $("foodView").hidden=name!=="food";
-  if(name!=="workout") document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"food"}));
-  try{history.replaceState(null,"",name==="food"?"#food":location.pathname+location.search)}catch{}
+  for(const t of TABS){ const T=t[0].toUpperCase()+t.slice(1); $("tab"+T).setAttribute("aria-selected",name===t); $(t+"View").hidden=name!==t; }
+  document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"tab-"+name}));
+  try{history.replaceState(null,"",name==="workout"?location.pathname+location.search:"#"+name)}catch{}
 }
-$("tabWorkout").onclick=()=>showTab("workout"); $("tabFood").onclick=()=>showTab("food");
-document.addEventListener("formiq:camera",e=>{ if(e.detail!=="workout" && running && stream){ stopSource(); $("camBtn").textContent="Start camera"; $("flipBtn").disabled=true; finishSet(); } });
+for(const t of TABS) $("tab"+t[0].toUpperCase()+t.slice(1)).onclick=()=>showTab(t);
+document.addEventListener("formiq:showtab",e=>showTab(e.detail));
+document.addEventListener("formiq:camera",e=>{ if(e.detail!=="workout" && e.detail!=="tab-workout" && running && stream){ stopSource(); $("camBtn").textContent="Start camera"; $("flipBtn").disabled=true; finishSet(); } });
 
 /* ---------- sources ---------- */
 async function startCamera(){
@@ -634,7 +715,9 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 video.addEventListener("playing",wake);
 
 renderEx(); renderLive(); renderSets(); renderHistory();
-initFood(); initAI(); if(location.hash==="#food") showTab("food");
+initFood(); initAI(); initActivity();
+if(TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1));
+addEventListener("hashchange",()=>{const h=location.hash.slice(1); if(TABS.includes(h)) showTab(h);});
 
 /* ---------- delete all data stored by FormIQ on this device ---------- */
 $("wipeBtn").onclick=()=>{const b=$("wipeBtn");
