@@ -1,0 +1,138 @@
+run 1 · success · signed=0 · Sat Oct 10 07:09:36 UTC 2026
+== errors
+14:> Task :app:preBuild UP-TO-DATE
+15:> Task :app:preReleaseBuild UP-TO-DATE
+16:> Task :app:mergeReleaseJniLibFolders
+17:> Task :app:mergeReleaseNativeLibs NO-SOURCE
+18:> Task :app:stripReleaseDebugSymbols NO-SOURCE
+19:> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+20:> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+21:> Task :app:checkReleaseDuplicateClasses
+22:> Task :app:buildKotlinToolingMetadata
+23:> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+24:> Task :app:generateReleaseBuildConfig
+25:> Task :app:checkReleaseAarMetadata
+26:> Task :app:processReleaseNavigationResources
+27:> Task :app:generateReleaseResValues
+28:> Task :app:compileReleaseNavigationResources
+29:> Task :app:mapReleaseSourceSetPaths
+30:> Task :app:generateReleaseResources
+31:> Task :app:packageReleaseResources
+32:> Task :app:mergeReleaseResources
+33:> Task :app:createReleaseCompatibleScreenManifests
+34:> Task :app:extractDeepLinksRelease
+35:> Task :app:parseReleaseLocalResources
+36:> Task :app:processReleaseMainManifest
+37:> Task :app:processReleaseManifest
+38:> Task :app:javaPreCompileRelease
+39:> Task :app:processReleaseManifestForPackage
+40:> Task :app:desugarReleaseFileDependencies
+41:> Task :app:mergeReleaseStartupProfile
+42:> Task :app:processReleaseResources
+43:> Task :app:mergeExtDexRelease
+44:> Task :app:mergeReleaseArtProfile
+45:> Task :app:mergeReleaseShaders
+46:> Task :app:compileReleaseShaders NO-SOURCE
+47:> Task :app:generateReleaseAssets UP-TO-DATE
+48:> Task :app:mergeReleaseAssets
+49:> Task :app:extractReleaseVersionControlInfo
+50:> Task :app:collectReleaseDependencies
+51:> Task :app:optimizeReleaseResources
+52:> Task :app:sdkReleaseDependencyData
+53:> Task :app:compressReleaseAssets
+54:> Task :app:validateSigningRelease
+55:> Task :app:writeReleaseAppMetadata
+56:> Task :app:writeReleaseSigningConfigVersions
+58:> Task :app:compileReleaseKotlin
+62:> Task :app:compileReleaseJavaWithJavac
+63:> Task :app:dexBuilderRelease
+64:> Task :app:mergeReleaseGlobalSynthetics
+65:> Task :app:processReleaseJavaRes
+66:> Task :app:mergeReleaseJavaResource
+67:> Task :app:mergeDexRelease
+68:> Task :app:compileReleaseArtProfile
+69:> Task :app:packageRelease
+70:> Task :app:createReleaseApkListingFileRedirect
+71:> Task :app:assembleRelease
+== tail
+
+Welcome to Gradle 8.14.3!
+
+Here are the highlights of this release:
+ - Java 24 support
+ - GraalVM Native Image toolchain selection
+ - Enhancements to test reporting
+ - Build Authoring improvements
+
+For more details see https://docs.gradle.org/8.14.3/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs NO-SOURCE
+> Task :app:stripReleaseDebugSymbols NO-SOURCE
+> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateReleaseBuildConfig
+> Task :app:checkReleaseAarMetadata
+> Task :app:processReleaseNavigationResources
+> Task :app:generateReleaseResValues
+> Task :app:compileReleaseNavigationResources
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:mergeReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:javaPreCompileRelease
+> Task :app:processReleaseManifestForPackage
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+> Task :app:processReleaseResources
+> Task :app:mergeExtDexRelease
+> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:collectReleaseDependencies
+> Task :app:optimizeReleaseResources
+> Task :app:sdkReleaseDependencyData
+> Task :app:compressReleaseAssets
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+
+> Task :app:compileReleaseKotlin
+w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/superclearice97/formiq/Ble.kt:173:22 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/superclearice97/formiq/Ble.kt:176:22 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:processReleaseJavaRes
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:compileReleaseArtProfile
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791616080562.json
+
+BUILD SUCCESSFUL in 1m 41s
+44 actionable tasks: 44 executed
+total 24308
+drwxr-xr-x 3 runner runner     4096 Oct 10 07:09 .
+drwxr-xr-x 3 runner runner     4096 Oct 10 07:09 ..
+-rw-r--r-- 1 runner runner 24873897 Oct 10 07:09 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 10 07:09 baselineProfiles
+-rw-r--r-- 1 runner runner      722 Oct 10 07:09 output-metadata.json
