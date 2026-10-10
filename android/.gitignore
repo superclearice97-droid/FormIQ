@@ -1,0 +1,7 @@
+.gradle/
+build/
+app/build/
+app/src/main/assets/www/
+local.properties
+*.p12
+*.jks
