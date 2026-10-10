@@ -3,6 +3,7 @@
    nutrition 60 pts (Nutri-Score grade or nutrient levels) + additives 30 pts + organic 10 pts,
    capped at 49 when a high-risk additive is present. */
 
+import "./secure.js?v=18";
 const $ = id => document.getElementById(id);
 const OFF = "https://world.openfoodfacts.org";
 const FIELDS = "code,product_name,generic_name,brands,image_front_small_url,nutriscore_grade,nutriscore_score,nova_group,additives_tags,labels_tags,allergens_tags,traces_tags,categories_tags,nutriments,ingredients_text,quantity";

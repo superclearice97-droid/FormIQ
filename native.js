@@ -101,6 +101,7 @@
   /* updates: compares this app's version with the newest FormIQ release on GitHub. No personal data is sent. */
   const UPD = "formiq.updates";
   async function updates(force) {
+    try { await window.FormIQSecure?.ready; } catch {}
     let s = {}; try { s = JSON.parse(localStorage.getItem(UPD)) || {}; } catch {}
     const box = document.getElementById("updateBox"), toggle = document.getElementById("updAuto");
     if (toggle) { toggle.checked = s.auto !== false; toggle.onchange = () => { s.auto = toggle.checked; try { localStorage.setItem(UPD, JSON.stringify(s)); } catch {} }; }

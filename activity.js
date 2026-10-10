@@ -2,6 +2,7 @@
    Strava with the user's own API app, FitShow/FTMS treadmills and bikes over Bluetooth).
    Everything is stored on this device. Network use: Strava only, and only after the user connects it. */
 
+import "./secure.js?v=18";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const KEY = "formiq.activity.v1", STRAVA = "formiq.strava.v1";
@@ -483,6 +484,7 @@ export async function initActivity() {
   $("addStepsForm").onsubmit = e => { e.preventDefault(); const v = Math.round(+$("addSteps").value); if (v > 0 && v < 100000) { day().manual = (day().manual || 0) + v; persist(); renderAll(); $("addSteps").value = ""; msg(`Added ${fmt(v)} steps.`); } };
   for (const [id, k, min, max] of [["goalSteps", "steps", 500, 100000], ["goalWorkouts", "workouts", 1, 21], ["goalMinutes", "minutes", 10, 2000]])
     $(id).onchange = () => { const v = Math.round(+$(id).value); if (v >= min && v <= max) { A.goals[k] = v; persist(); renderAll(); } else renderGoals(); };
+  $("appleBtn").onclick = () => $("appleFile").click(); $("csvBtn").onclick = () => $("csvFile").click();
   $("appleFile").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) importApple(f); };
   $("csvFile").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) importCsv(f); };
   $("machineBtn").onclick = () => machine ? finishMachine() : connectMachine();

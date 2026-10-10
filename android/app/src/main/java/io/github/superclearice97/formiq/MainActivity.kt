@@ -7,7 +7,23 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.app.KeyguardManager
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.Gravity
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+import androidx.biometric.BiometricPrompt
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import android.speech.tts.TextToSpeech
 import android.view.WindowManager
 import android.webkit.MimeTypeMap
@@ -77,6 +93,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var health: Health
     private lateinit var steps: Steps
     private var tts: TextToSpeech? = null
+    private val prefs by lazy { getSharedPreferences("formiq", MODE_PRIVATE) }
+    private var unlocked = CompletableDeferred<Unit>()
+    private var cover: LinearLayout? = null
+    private var stoppedAt = 0L
+    private val lockOn get() = prefs.getBoolean("lock", false)
 
     private var permWait: CompletableDeferred<Map<String, Boolean>>? = null
     private val permLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permWait?.complete(it); permWait = null }
@@ -123,10 +144,14 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        File(cacheDir, "photos").deleteRecursively()              // never keep old meal photos
+        if (lockOn) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         val root = FrameLayout(this)
+        root.filterTouchesWhenObscured = true                     // ignore taps through overlays from other apps
         web = WebView(this)
         root.addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         setContentView(root)
+        if (lockOn) showCover(root) else unlocked.complete(Unit)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val b = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
             v.setPadding(b.left, b.top, b.right, b.bottom); WindowInsetsCompat.CONSUMED
@@ -144,6 +169,8 @@ class MainActivity : AppCompatActivity() {
             allowFileAccess = false
             allowContentAccess = false
             setSupportMultipleWindows(false)
+            setGeolocationEnabled(false)
+            saveFormData = false
         }
         web.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? = loader.shouldInterceptRequest(request.url)
@@ -198,6 +225,45 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); web.saveState(outState) }
     override fun onResume() { super.onResume(); event("resume", JSONObject()) }
+    override fun onStop() { super.onStop(); stoppedAt = SystemClock.elapsedRealtime() }
+    override fun onStart() {
+        super.onStart()
+        if (lockOn && stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > 30_000 && cover == null) showCover(web.parent as FrameLayout)
+    }
+
+    /* ---------- app lock: fingerprint, face or screen lock ---------- */
+    private fun authenticators() = if (Build.VERSION.SDK_INT >= 30) BIOMETRIC_WEAK or DEVICE_CREDENTIAL else BIOMETRIC_WEAK
+    private fun canLock(): Boolean =
+        BiometricManager.from(this).canAuthenticate(authenticators()) == BiometricManager.BIOMETRIC_SUCCESS ||
+            (Build.VERSION.SDK_INT < 30 && getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true)
+
+    @Suppress("DEPRECATION")
+    private suspend fun authenticate(title: String): Boolean = suspendCancellableCoroutine { cont ->
+        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) { if (cont.isActive) cont.resume(true) }
+            override fun onAuthenticationError(code: Int, msg: CharSequence) { if (cont.isActive) cont.resume(false) }
+        })
+        val info = BiometricPrompt.PromptInfo.Builder().setTitle(title).setSubtitle("Use your fingerprint, face or screen lock")
+            .apply { if (Build.VERSION.SDK_INT >= 30) setAllowedAuthenticators(authenticators()) else setDeviceCredentialAllowed(true) }
+            .build()
+        prompt.authenticate(info)
+    }
+
+    private fun showCover(root: FrameLayout) {
+        val dark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val v = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; isClickable = true
+            setBackgroundColor(if (dark) Color.parseColor("#0e1311") else Color.parseColor("#f3f5f4"))
+            addView(TextView(context).apply { text = "FormIQ is locked"; textSize = 24f; gravity = Gravity.CENTER; setTextColor(if (dark) Color.WHITE else Color.parseColor("#15201b")) })
+            addView(Button(context).apply { text = "Unlock"; setOnClickListener { lifecycleScope.launch { unlock() } } })
+        }
+        root.addView(v, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        cover = v
+        lifecycleScope.launch { unlock() }
+    }
+    private suspend fun unlock() {
+        if (authenticate("Unlock FormIQ")) { cover?.let { (it.parent as? FrameLayout)?.removeView(it) }; cover = null; unlocked.complete(Unit) }
+    }
     override fun onDestroy() { tts?.shutdown(); ble.closeAll(); web.destroy(); super.onDestroy() }
 
     private fun mimeTypes(accept: Array<String>): List<String> {
@@ -239,6 +305,16 @@ class MainActivity : AppCompatActivity() {
         try {
             val result: Any? = when (m.optString("method")) {
                 "hello" -> JSONObject().put("version", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE)
+                "secureKey" -> { unlocked.await(); withContext(Dispatchers.Default) { val k = Vault.dataKey(this@MainActivity); val s = android.util.Base64.encodeToString(k, android.util.Base64.NO_WRAP); k.fill(0); s } }
+                "lockStatus" -> JSONObject().put("available", canLock()).put("on", lockOn)
+                "lockSet" -> {
+                    val on = a.optBoolean("on")
+                    if (on && !canLock()) throw BridgeError("NotSupportedError", "Set a screen lock on your phone first.")
+                    if (!authenticate(if (on) "Turn on FormIQ lock" else "Turn off FormIQ lock")) throw BridgeError("NotAllowedError", "Not confirmed.")
+                    prefs.edit().putBoolean("lock", on).apply()
+                    if (on) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    JSONObject().put("available", true).put("on", on)
+                }
                 "saveFile" -> saveFile(a.getString("name"), a.getString("text"))
                 "speak" -> { speak(a.optString("text")); null }
                 "speakStop" -> { tts?.stop(); null }
@@ -262,7 +338,18 @@ class MainActivity : AppCompatActivity() {
                 "hcWrite" -> { health.write(a); null }
                 "hcDisconnect" -> { health.disconnect(); health.status() }
                 "stravaFetch" -> Net.strava(a)
-                "wipe" -> { steps.disable(); getSharedPreferences("formiq", MODE_PRIVATE).edit().clear().apply(); null }
+                "wipe" -> {
+                    try { steps.disable() } catch (_: Exception) {}
+                    try { health.disconnect() } catch (_: Exception) {}
+                    Vault.destroy(this)
+                    WebStorage.getInstance().deleteAllData()
+                    CookieManager.getInstance().removeAllCookies(null)
+                    web.clearCache(true); web.clearHistory()
+                    withContext(Dispatchers.IO) { cacheDir.deleteRecursively() }
+                    prefs.edit().clear().commit()
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    null
+                }
                 else -> throw BridgeError("NotSupportedError", "Unknown request")
             }
             if (id != 0) reply(id, result)

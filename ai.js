@@ -4,11 +4,13 @@
    Privacy measures: photo is shrunk to 768 px and re-encoded (drops EXIF, including GPS location);
    every photo needs an explicit "Send" tap; key is kept for this tab only unless the user opts to remember it;
    nothing about the photo is stored except the resulting food estimates. */
-import { analyze, addEstimated, showProduct, setMsg } from "./food.js?v=15";
+import "./secure.js?v=18";
+import { analyze, addEstimated, showProduct, setMsg } from "./food.js?v=18";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const CFG = "formiq.ai.cfg", KEY = "formiq.ai.key";
+let memKey = "";                                            // a key you don't ask us to remember lives only in memory
 const PROVIDERS = {
   anthropic: { label: "Claude (Anthropic)", model: "claude-haiku-5-5", keyHint: "sk-ant-…", keyUrl: "https://console.anthropic.com/settings/keys",
     privacy: "Anthropic does not use API inputs to train its models by default. It keeps API data for a limited time for safety and abuse monitoring under its commercial terms." },
@@ -19,9 +21,10 @@ const PROVIDERS = {
 const store = {
   cfg() { try { return JSON.parse(localStorage.getItem(CFG)) || null } catch { return null } },
   setCfg(c) { try { c ? localStorage.setItem(CFG, JSON.stringify(c)) : localStorage.removeItem(CFG) } catch {} },
-  key() { try { return sessionStorage.getItem(KEY) || localStorage.getItem(KEY) || "" } catch { return "" } },
+  key() { try { return memKey || localStorage.getItem(KEY) || "" } catch { return memKey || "" } },
   setKey(k, remember) {
-    try { sessionStorage.removeItem(KEY); localStorage.removeItem(KEY); if (k) (remember ? localStorage : sessionStorage).setItem(KEY, k); } catch {}
+    memKey = remember ? "" : k;
+    try { localStorage.removeItem(KEY); if (k && remember) localStorage.setItem(KEY, k); } catch {}
   },
 };
 
@@ -114,7 +117,7 @@ function render() {
     $("aiSetup").onclick = setup; return;
   }
   const P = PROVIDERS[cfg.provider], hasKey = !!store.key();
-  box.innerHTML = `<p class="muted">On · ${esc(P.label)}${hasKey ? "" : " · key needed (it was kept for one session only)"}.</p>
+  box.innerHTML = `<p class="muted">On · ${esc(P.label)}${hasKey ? "" : " · key needed (it was kept only until FormIQ closed)"}.</p>
     <div class="controls">
       <button class="primary" id="aiPhoto">Photo a meal</button>
       <button id="aiOff">Turn off and forget key</button>
