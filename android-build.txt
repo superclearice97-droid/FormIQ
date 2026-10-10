@@ -1,4 +1,4 @@
-run 2 · success · signed=0 · Sat Oct 10 07:16:11 UTC 2026
+run 3 · success · signed=1 · Sat Oct 10 09:16:41 UTC 2026
 == errors
 3:> Task :app:preBuild UP-TO-DATE
 4:> Task :app:preReleaseBuild UP-TO-DATE
@@ -20,28 +20,28 @@ run 2 · success · signed=0 · Sat Oct 10 07:16:11 UTC 2026
 20:> Task :app:packageReleaseResources
 21:> Task :app:createReleaseCompatibleScreenManifests
 22:> Task :app:extractDeepLinksRelease
-23:> Task :app:mergeReleaseResources
-24:> Task :app:parseReleaseLocalResources
-25:> Task :app:processReleaseMainManifest
+23:> Task :app:parseReleaseLocalResources
+24:> Task :app:processReleaseMainManifest
+25:> Task :app:mergeReleaseResources
 26:> Task :app:processReleaseManifest
 27:> Task :app:desugarReleaseFileDependencies
 28:> Task :app:processReleaseManifestForPackage
 29:> Task :app:javaPreCompileRelease
 30:> Task :app:mergeReleaseStartupProfile
-31:> Task :app:processReleaseResources
-32:> Task :app:mergeReleaseArtProfile
-33:> Task :app:mergeReleaseShaders
-34:> Task :app:compileReleaseShaders NO-SOURCE
-35:> Task :app:generateReleaseAssets UP-TO-DATE
-36:> Task :app:mergeReleaseAssets
-37:> Task :app:extractReleaseVersionControlInfo
-38:> Task :app:compressReleaseAssets
-39:> Task :app:collectReleaseDependencies
-40:> Task :app:sdkReleaseDependencyData
-41:> Task :app:optimizeReleaseResources
-42:> Task :app:validateSigningRelease
-43:> Task :app:writeReleaseAppMetadata
-44:> Task :app:writeReleaseSigningConfigVersions
+31:> Task :app:mergeReleaseArtProfile
+32:> Task :app:mergeReleaseShaders
+33:> Task :app:compileReleaseShaders NO-SOURCE
+34:> Task :app:generateReleaseAssets UP-TO-DATE
+35:> Task :app:mergeReleaseAssets
+36:> Task :app:extractReleaseVersionControlInfo
+37:> Task :app:collectReleaseDependencies
+38:> Task :app:sdkReleaseDependencyData
+39:> Task :app:validateSigningRelease
+40:> Task :app:writeReleaseAppMetadata
+41:> Task :app:writeReleaseSigningConfigVersions
+42:> Task :app:processReleaseResources
+43:> Task :app:compressReleaseAssets
+44:> Task :app:optimizeReleaseResources
 45:> Task :app:mergeExtDexRelease
 47:> Task :app:compileReleaseKotlin
 51:> Task :app:compileReleaseJavaWithJavac
@@ -77,28 +77,28 @@ Daemon will be stopped at the end of the build
 > Task :app:packageReleaseResources
 > Task :app:createReleaseCompatibleScreenManifests
 > Task :app:extractDeepLinksRelease
-> Task :app:mergeReleaseResources
 > Task :app:parseReleaseLocalResources
 > Task :app:processReleaseMainManifest
+> Task :app:mergeReleaseResources
 > Task :app:processReleaseManifest
 > Task :app:desugarReleaseFileDependencies
 > Task :app:processReleaseManifestForPackage
 > Task :app:javaPreCompileRelease
 > Task :app:mergeReleaseStartupProfile
-> Task :app:processReleaseResources
 > Task :app:mergeReleaseArtProfile
 > Task :app:mergeReleaseShaders
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
 > Task :app:mergeReleaseAssets
 > Task :app:extractReleaseVersionControlInfo
-> Task :app:compressReleaseAssets
 > Task :app:collectReleaseDependencies
 > Task :app:sdkReleaseDependencyData
-> Task :app:optimizeReleaseResources
 > Task :app:validateSigningRelease
 > Task :app:writeReleaseAppMetadata
 > Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseResources
+> Task :app:compressReleaseAssets
+> Task :app:optimizeReleaseResources
 > Task :app:mergeExtDexRelease
 
 > Task :app:compileReleaseKotlin
@@ -115,13 +115,13 @@ w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/su
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791616535826.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791623763307.json
 
-BUILD SUCCESSFUL in 39s
+BUILD SUCCESSFUL in 37s
 44 actionable tasks: 44 executed
 total 24336
-drwxr-xr-x 3 runner runner     4096 Oct 10 07:16 .
-drwxr-xr-x 3 runner runner     4096 Oct 10 07:16 ..
--rw-r--r-- 1 runner runner 24902099 Oct 10 07:16 app-release.apk
-drwxr-xr-x 4 runner runner     4096 Oct 10 07:16 baselineProfiles
--rw-r--r-- 1 runner runner      722 Oct 10 07:16 output-metadata.json
+drwxr-xr-x 3 runner runner     4096 Oct 10 09:16 .
+drwxr-xr-x 3 runner runner     4096 Oct 10 09:16 ..
+-rw-r--r-- 1 runner runner 24902143 Oct 10 09:16 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 10 09:16 baselineProfiles
+-rw-r--r-- 1 runner runner      722 Oct 10 09:16 output-metadata.json
