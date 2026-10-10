@@ -1,6 +1,7 @@
 # Builds the FormIQ Android app from this repository and publishes FormIQ.apk as a GitHub release.
 # The APK is signed with the key stored in the FORMIQ_SIGNING_KEY secret ("password:base64-of-pkcs12").
 # Without that secret the build still runs as a check, but nothing is published.
+# Each release is installable over the previous one because every build uses the same key.
 name: Android app
 on:
   push:
