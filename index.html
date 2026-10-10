@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101418">
 <title>FormIQ</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com https://api.github.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
+<script src="native.js?v=17"></script>
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
 @font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
@@ -152,8 +153,55 @@ details{margin-top:10px}details summary{cursor:pointer;font-weight:600;font-size
 .actlist .num{color:var(--muted);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .stat b small{font-size:.5em;opacity:.6}
 #actMsg{font-size:13px;color:var(--muted);margin:0;min-height:1.2em}#actMsg[data-bad="1"]{color:var(--bad)}
+#rideView .stage{aspect-ratio:16/9;border-radius:14px}
+#rideStage:fullscreen{aspect-ratio:auto;border-radius:0}
+#rideCanvas{position:absolute;inset:0;width:100%;height:100%}
+.hudtop{position:absolute;left:10px;right:10px;top:10px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none}
+.hudmain{background:rgba(8,12,10,.62);color:#fff;border-radius:12px;padding:6px 14px;display:grid;line-height:1}
+.hudmain b{font:800 clamp(34px,7vw,64px)/1 var(--display);font-variant-numeric:tabular-nums}.hudmain span{font-size:12px;opacity:.8;margin-top:2px}
+.hudgrade{background:rgba(8,12,10,.62);color:#fff;border-radius:10px;padding:6px 10px;font:800 20px/1 var(--display)}
+.hudgrade[data-steep="up"]{background:rgba(196,60,60,.85)}.hudgrade[data-steep="down"]{background:rgba(21,101,192,.85)}
+.hudwarn{position:absolute;left:50%;top:40%;transform:translateX(-50%);background:rgba(196,60,60,.92);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600}
+.hudbtns{position:absolute;right:10px;bottom:10px}.hudbtns button{background:rgba(8,12,10,.55);color:#fff;border:0;font-size:18px;padding:6px 10px}
+.hudgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+@media (max-width:560px){.hudgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.hstat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:grid;line-height:1.15}
+.hstat span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}.hstat b{font:800 26px/1.05 var(--display);font-variant-numeric:tabular-nums}.hstat i{font-style:normal;font-size:11px;color:var(--muted)}
+.wobar{position:relative;display:flex;align-items:flex-end;height:46px;gap:1px;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px;overflow:hidden}
+.wobar i{display:block;border-radius:2px 2px 0 0;opacity:.85}.wobar em{position:absolute;top:0;bottom:0;width:2px;background:var(--fg)}
+.wotext{margin:4px 0 0;font-weight:600;font-size:14px}.wotext[data-on="1"]{color:#1f9d55}.wotext[data-on="0"]{color:#d07f00}
+.ridebottom{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:8px;margin:8px 0}
+@media (max-width:700px){.ridebottom{grid-template-columns:minmax(0,1fr)}}
+#rideMini{width:100%;height:84px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.board{list-style:none;margin:0;padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:13px;display:grid;gap:4px;align-content:start}
+.board:empty{display:none}.board li{display:flex;align-items:center;gap:8px}.board li i{width:10px;height:10px;border-radius:50%;flex:none}.board li span{flex:1;min-width:0}.board small{color:var(--muted)}
+.board li.me{font-weight:700}.board b{font-variant-numeric:tabular-nums}
+.routes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+@media (max-width:480px){.routes{grid-template-columns:minmax(0,1fr)}}
+.route{display:grid;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;cursor:pointer;position:relative}
+.route input{position:absolute;opacity:0}.route:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.route:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.route.locked{opacity:.55;cursor:not-allowed}.rname{font:800 20px/1.1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.rmeta{font-size:12px;color:var(--muted)}.rblurb{font-size:13px}.rpb{font-size:12px;font-weight:600;color:var(--accent)}
+button.big{font-size:18px;padding:12px 22px;justify-self:start}
+#rideMsg{font-size:13px;color:var(--muted);margin:0;min-height:1.2em}#rideMsg[data-bad="1"]{color:var(--bad)}
+.lvrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}.lvrow b{font:800 26px/1 var(--display);text-transform:uppercase}.lvrow span{font-size:12px;color:var(--muted)}
+.xpbar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:8px 0}.xpbar i{display:block;height:100%;background:var(--accent)}
+.badges{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px;font-size:13px}.badges li{display:grid}.badges li span{color:var(--muted);font-size:12px}
+#rideLevel .badges li:not(.got){opacity:.55}
+.jerseys{display:flex;gap:8px;margin-top:10px}.jerseys button{width:30px;height:30px;border-radius:50%;padding:0;background:var(--j);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+.jerseys button[aria-checked="true"]{box-shadow:0 0 0 2px var(--fg)}.jerseys button:disabled{opacity:.3}
+.sumhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.sumhead h3{font:800 30px/1.1 var(--display);margin:4px 0 0}
+.xpgain{font:800 28px/1 var(--display);color:var(--accent);display:grid;text-align:right}.xpgain span{font-size:16px}
+.pbline{font-weight:700;color:var(--accent)}.stars{font-size:24px;color:#f9a825;margin:6px 0}.stars span{font-size:13px;color:var(--muted)}
+.sumstats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.rchart{margin:10px 0 0}.rchart figcaption{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}.rchart svg{height:70px;display:block}
 footer{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
 footer a{color:var(--muted)}
+.getapp{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.getapp div{display:grid;gap:2px;min-width:0;flex:1 1 220px}.getapp span,.getapp p{color:var(--muted);font-size:13px;margin:0}
+.btnlink{display:inline-block;background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:10px 16px;font-weight:600;text-decoration:none}
+.btnlink[hidden]{display:none}
 .linkbtn{border:0;background:none;padding:0;font:inherit;font-size:13px;color:var(--muted);text-decoration:underline;cursor:pointer;font-weight:400}
 .aiprev{margin:10px 0 0;display:grid;gap:6px}.aiprev img{width:100%;height:auto;border-radius:10px;max-height:320px;object-fit:contain;background:#000}
 .aiprev figcaption{font-size:12px;color:var(--muted)}
@@ -174,13 +222,14 @@ footer a{color:var(--muted)}
 <div class="wrap">
   <header>
     <h1>Form<span>IQ</span></h1>
-    <div class="sub">Form tracking, food scores, steps and goals. Your data stays on your device. · v1.6</div>
+    <div class="sub">Form tracking, food scores, steps, goals and game rides. Your data stays on your device. · v1.7</div>
   </header>
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tabWorkout" aria-selected="true" aria-controls="workoutView">Workout</button>
     <button role="tab" id="tabFood" aria-selected="false" aria-controls="foodView">Food</button>
     <button role="tab" id="tabActivity" aria-selected="false" aria-controls="activityView">Activity</button>
+    <button role="tab" id="tabRide" aria-selected="false" aria-controls="rideView">Ride</button>
   </div>
 
   <div class="food" id="foodView" role="tabpanel" aria-labelledby="tabFood" hidden>
@@ -230,6 +279,12 @@ footer a{color:var(--muted)}
       </div>
     </section>
     <aside class="rail">
+      <div class="panel conn" id="nativeBox" hidden>
+        <div class="label">All-day steps</div>
+        <div id="phoneSteps"></div>
+        <div class="label" style="margin-top:8px">Health Connect</div>
+        <div id="hcBox"></div>
+      </div>
       <div class="panel">
         <div class="label">Goals</div>
         <div class="goals">
@@ -256,7 +311,7 @@ footer a{color:var(--muted)}
       </div>
       <div class="panel conn">
         <div class="label">FitShow treadmills and bikes</div>
-        <p class="muted">Connect over Bluetooth to FitShow and other machines that use the standard fitness-machine protocol. Data goes straight to this device.</p>
+        <p class="muted">Quick log: connect over Bluetooth to FitShow and other standard fitness machines. For a game ride with routes, pace partners and workouts, use the Ride tab.</p>
         <button type="button" id="machineBtn">Connect treadmill or bike</button>
         <div class="stats" id="machineLive" hidden></div>
       </div>
@@ -266,6 +321,83 @@ footer a{color:var(--muted)}
         <button type="button" id="exportBtn">Export my data</button>
       </div>
     </aside>
+  </div>
+
+  <div id="rideView" role="tabpanel" aria-labelledby="tabRide" hidden>
+    <div class="food" id="rideSetup">
+      <section style="display:grid;gap:12px;min-width:0">
+        <div class="panel conn">
+          <div class="label">1 · Connect</div>
+          <div class="controls">
+            <button class="primary" id="rideMachine">Connect bike or treadmill</button>
+            <button id="rideHr">Connect heart-rate strap</button>
+          </div>
+          <div class="controls"><button id="rideDemoBike">Try demo bike</button><button id="rideDemoRun">Try demo treadmill</button></div>
+          <div id="rideDevices"></div>
+          <p class="muted" id="rideKindNote"></p>
+          <p class="muted">Works with FitShow and other smart treadmills, bikes and trainers that use the standard Bluetooth fitness-machine protocol. Breathing rate needs a chest strap that sends beat-to-beat data (for example Polar H10, Garmin HRM, Wahoo TICKR).</p>
+        </div>
+        <div class="panel">
+          <div class="label">2 · Choose a route</div>
+          <input type="hidden" id="rideRoute" value="lake">
+          <div class="routes" id="rideRoutes"></div>
+        </div>
+        <div class="panel conn">
+          <div class="label">3 · How do you want to ride?</div>
+          <div class="formrow">
+            <select id="rideMode" aria-label="Ride mode">
+              <option value="free">Free ride (race your best time)</option>
+              <option value="race">Race the pace partners</option>
+              <option value="workout">Structured workout</option>
+            </select>
+            <select id="rideWorkout" aria-label="Workout" hidden></select>
+          </div>
+          <button class="primary big" id="rideStart" disabled>Start</button>
+          <p id="rideMsg" role="status"></p>
+        </div>
+      </section>
+      <aside class="rail">
+        <div class="panel"><div class="label">Your progress</div><div id="rideLevel"></div></div>
+        <div class="panel" id="rideSettings">
+          <div class="label">About you</div>
+          <div class="goals">
+            <label class="field" for="rs_weight">Weight (kg) <input id="rs_weight" type="number" min="30" max="250"></label>
+            <label class="field" for="rs_age">Age <input id="rs_age" type="number" min="10" max="100"></label>
+            <label class="field" for="rs_maxHr">Max heart rate <input id="rs_maxHr" type="number" min="100" max="230" placeholder="auto"></label>
+            <label class="field" for="rs_ftp">FTP (watts) <input id="rs_ftp" type="number" min="50" max="600" placeholder="auto"></label>
+            <label class="field" for="rs_easyKmh">Comfortable treadmill speed (km/h) <input id="rs_easyKmh" type="number" min="2" max="20" step="0.5"></label>
+            <label class="field" for="rs_difficulty">Hill feel on bikes (%) <input id="rs_difficulty" type="number" min="0" max="100" step="10"></label>
+          </div>
+          <p class="muted" id="rs_hint"></p>
+          <label class="check" for="rs_control"><input type="checkbox" id="rs_control"> Let FormIQ set my bike's resistance for hills and workouts</label>
+          <label class="check" for="rs_autoIncline"><input type="checkbox" id="rs_autoIncline"> Treadmill auto-incline to match the route (never changes speed)</label>
+          <label class="field" for="rs_maxIncline">Highest auto-incline (%) <input id="rs_maxIncline" type="number" min="0" max="15"></label>
+          <label class="check" for="rs_voice"><input type="checkbox" id="rs_voice"> Spoken cues</label>
+        </div>
+      </aside>
+    </div>
+
+    <div id="rideLive" hidden>
+      <div class="stage" id="rideStage">
+        <canvas id="rideCanvas"></canvas>
+        <div class="hudtop"><div id="hudMain" class="hudmain"></div><div id="hudGrade" class="hudgrade"></div></div>
+        <div id="hudWarn" class="hudwarn" hidden>Heart rate very high. Ease off.</div>
+        <div class="hudbtns"><button id="rideFull" aria-label="Full screen">⛶</button></div>
+      </div>
+      <div class="hudgrid" id="hudGrid"></div>
+      <div class="wobar" id="woBar" hidden></div>
+      <p class="wotext" id="woText"></p>
+      <div class="ridebottom">
+        <canvas id="rideMini" aria-label="Route elevation and positions"></canvas>
+        <ol class="board" id="rideBoard"></ol>
+      </div>
+      <div class="controls"><button id="ridePause">Pause</button><button class="primary" id="rideEnd">Finish</button></div>
+    </div>
+
+    <div class="panel" id="rideSummary" hidden>
+      <div id="rideSumBody"></div>
+      <div class="controls" style="margin-top:12px"><button class="primary" id="rideDone">Done</button><button id="rideStrava" hidden>Upload to Strava</button><button id="rideTcx">Save TCX file</button></div>
+    </div>
   </div>
 
   <div class="grid" id="workoutView" role="tabpanel" aria-labelledby="tabWorkout">
@@ -337,7 +469,13 @@ footer a{color:var(--muted)}
       </div>
     </aside>
   </div>
-  <footer><span>© 2026 FormIQ. Not medical advice.</span><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="licenses.html">Licenses</a><button type="button" id="wipeBtn" class="linkbtn">Delete all my data</button></footer>
+  <div class="panel getapp" data-web-only>
+    <div><b>FormIQ for Android</b><span>All-day steps, Health Connect and Bluetooth machines in one app. Free, no ads, no account.</span></div>
+    <a class="btnlink" href="install.html">Get the app</a>
+  </div>
+  <div class="panel getapp" id="updateBox" hidden><div><b>Update</b><p></p></div><a class="btnlink" href="https://github.com/superclearice97-droid/FormIQ/releases/latest/download/FormIQ.apk">Download update</a></div>
+  <footer><span>© 2026 FormIQ. Not medical advice.</span>
+    <span data-app-only hidden>App version <span id="appVersion"></span> · <button type="button" class="linkbtn" id="updCheck">Check for updates</button> · <label class="linkbtn" for="updAuto"><input type="checkbox" id="updAuto"> check automatically</label></span><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="licenses.html">Licenses</a><button type="button" id="wipeBtn" class="linkbtn">Delete all my data</button></footer>
 </div>
 
 <div class="modal" id="consent" hidden role="dialog" aria-modal="true" aria-labelledby="consentTitle">
@@ -346,7 +484,7 @@ footer a{color:var(--muted)}
     <ul>
       <li>FormIQ gives automated form feedback and food scores. They are <strong>not medical or dietary advice</strong> and can be wrong. Always check allergens on the package. Check with a doctor before starting a new program, and stop if anything hurts.</li>
       <li>Your camera is analyzed <strong>on this device only</strong>. Video is never recorded or uploaded. Barcodes and food searches are looked up on Open Food Facts. Workout, food and step history stay in this browser. Strava and photo analysis are off unless you connect them.</li>
-      <li>Clear the space around you and set the camera somewhere stable.</li>
+      <li>Clear the space around you and set the camera somewhere stable. On a treadmill, keep the safety clip on: FormIQ never changes its speed.</li>
     </ul>
     <label for="consentBox"><input type="checkbox" id="consentBox"> I have read and agree to the <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>, and I exercise at my own risk.</label>
     <div class="controls"><button class="primary" id="consentOk" disabled>Continue</button><button id="consentCancel">Cancel</button></div>
@@ -380,7 +518,8 @@ footer a{color:var(--muted)}
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
 import { initFood } from "./food.js?v=15";
 import { initAI } from "./ai.js?v=15";
-import { initActivity } from "./activity.js?v=16";
+import { initActivity } from "./activity.js?v=17";
+import { initRide } from "./ride.js?v=17";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -638,7 +777,7 @@ function loop(){
 function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(()=>loop()); else requestAnimationFrame(loop); }
 
 /* ---------- consent (shown once per browser, again if the terms version changes) ---------- */
-const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-09d";
+const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-10";
 function hasConsent(){try{return localStorage.getItem(CONSENT_KEY)===CONSENT_VER}catch{return false}}
 function ensureConsent(){
   if(hasConsent()) return Promise.resolve(true);
@@ -654,7 +793,7 @@ function ensureConsent(){
 window.formiqEnsureConsent=ensureConsent;
 
 /* ---------- tabs ---------- */
-const TABS=["workout","food","activity"];
+const TABS=["workout","food","activity","ride"];
 function showTab(name){
   for(const t of TABS){ const T=t[0].toUpperCase()+t.slice(1); $("tab"+T).setAttribute("aria-selected",name===t); $(t+"View").hidden=name!==t; }
   document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"tab-"+name}));
@@ -715,7 +854,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 video.addEventListener("playing",wake);
 
 renderEx(); renderLive(); renderSets(); renderHistory();
-initFood(); initAI(); initActivity();
+initFood(); initAI(); initActivity(); initRide();
 if(TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1));
 addEventListener("hashchange",()=>{const h=location.hash.slice(1); if(TABS.includes(h)) showTab(h);});
 

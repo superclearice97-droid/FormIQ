@@ -19,7 +19,7 @@ function day(k = dayKey()) { return A.days[k] || (A.days[k] = {}); }
 function stepsFor(k) {
   const d = A.days[k] || {};
   const app = (d.live || 0) + (d.manual || 0) + (d.machine || 0);
-  return Math.max(app, d.apple || 0, d.csv || 0);
+  return Math.max(app, d.apple || 0, d.csv || 0, d.phone || 0, d.hc || 0);
 }
 function addWorkouts(list) {
   const ids = new Set(A.workouts.map(w => w.id));
@@ -203,18 +203,33 @@ async function importCsv(files) {
 /* ---------- Strava (user's own API application; secret and tokens stay on this device) ---------- */
 let S = load(STRAVA, null);
 const saveS = () => save(STRAVA, S);
-const redirect = () => location.origin + location.pathname;
+const NATIVE = () => !!window.FormIQNative?.call;
+const PUBLIC_URL = "https://superclearice97-droid.github.io/FormIQ/";
+const redirect = () => NATIVE() ? PUBLIC_URL : location.origin + location.pathname;
+const callbackDomain = () => NATIVE() ? "superclearice97-droid.github.io" : location.hostname;
+/* body: {form: {...}} or {multipart: {fields, file: {field, name, mime, text}}} */
+async function sfetch(url, { method = "GET", headers = {}, form, multipart } = {}) {
+  if (NATIVE()) {
+    const body = form ? { type: "form", fields: form } : multipart ? { type: "multipart", ...multipart } : null;
+    const r = await window.FormIQNative.call("stravaFetch", { url, method, headers, body });
+    return { ok: r.status >= 200 && r.status < 300, status: r.status, json: async () => { try { return JSON.parse(r.body || "{}"); } catch { return {}; } } };
+  }
+  let body;
+  if (form) body = new URLSearchParams(form);
+  if (multipart) { body = new FormData(); for (const [k, v] of Object.entries(multipart.fields || {})) body.append(k, v);
+    if (multipart.file) body.append(multipart.file.field, new Blob([multipart.file.text], { type: multipart.file.mime }), multipart.file.name); }
+  return fetch(url, { method, headers, body, credentials: "omit", referrerPolicy: "no-referrer" });
+}
 async function stravaToken() {
   if (!S?.refresh) throw new Error("Connect Strava first.");
   if (S.access && S.expires * 1000 > Date.now() + 120000) return S.access;
-  const r = await fetch("https://www.strava.com/oauth/token", { method: "POST", credentials: "omit", referrerPolicy: "no-referrer",
-    body: new URLSearchParams({ client_id: S.id, client_secret: S.secret, grant_type: "refresh_token", refresh_token: S.refresh }) });
+  const r = await sfetch("https://www.strava.com/oauth/token", { method: "POST", form: { client_id: S.id, client_secret: S.secret, grant_type: "refresh_token", refresh_token: S.refresh } });
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error("Strava sign-in expired. Connect again.");
   Object.assign(S, { access: j.access_token, refresh: j.refresh_token, expires: j.expires_at }); saveS(); return S.access;
 }
 async function strava(path, opt = {}) {
   const t = await stravaToken();
-  const r = await fetch("https://www.strava.com/api/v3" + path, { ...opt, credentials: "omit", referrerPolicy: "no-referrer", headers: { Authorization: "Bearer " + t, ...(opt.headers || {}) } });
+  const r = await sfetch("https://www.strava.com/api/v3" + path, { ...opt, headers: { Authorization: "Bearer " + t } });
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(`Strava: ${j.message || r.status}`); return j;
 }
 function stravaConnect() {
@@ -228,8 +243,7 @@ async function stravaCallback() {
   history.replaceState(null, "", location.pathname + "#activity");          // remove the code from the address bar
   if (q.get("error") || !S?.id || q.get("state") !== st) { msg("Strava connection was cancelled.", true); return true; }
   try {
-    const r = await fetch("https://www.strava.com/oauth/token", { method: "POST", credentials: "omit", referrerPolicy: "no-referrer",
-      body: new URLSearchParams({ client_id: S.id, client_secret: S.secret, code: q.get("code"), grant_type: "authorization_code" }) });
+    const r = await sfetch("https://www.strava.com/oauth/token", { method: "POST", form: { client_id: S.id, client_secret: S.secret, code: q.get("code"), grant_type: "authorization_code" } });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.message || "Strava didn't accept the connection. Check your Client ID and Secret.");
     Object.assign(S, { access: j.access_token, refresh: j.refresh_token, expires: j.expires_at, scope: q.get("scope") || "", athlete: j.athlete?.firstname || "" }); saveS();
     msg("Strava connected."); await stravaSync();
@@ -247,9 +261,9 @@ async function stravaSync() {
     if ((S.scope || "").includes("activity:write") && S.upload !== false) {
       S.uploaded ||= [];
       for (const w of formiqWorkouts().filter(w => !S.uploaded.includes(w.id) && Date.now() - w.start < 30 * 864e5)) {
-        await strava("/activities", { method: "POST", body: new URLSearchParams({ name: `FormIQ: ${w.name}`, sport_type: "WeightTraining",
+        await strava("/activities", { method: "POST", form: { name: `FormIQ: ${w.name}`, sport_type: "WeightTraining",
           start_date_local: new Date(w.start - new Date(w.start).getTimezoneOffset() * 60000).toISOString().slice(0, 19), elapsed_time: String(w.minutes * 60),
-          description: `${w.sets} sets, ${w.reps} reps. Logged with FormIQ.` }) });
+          description: `${w.sets} sets, ${w.reps} reps. Logged with FormIQ.` } });
         S.uploaded.push(w.id); up++;
       }
     }
@@ -258,7 +272,7 @@ async function stravaSync() {
   } catch (e) { msg(/fetch/i.test(e.message) ? "Couldn't reach Strava. Check your connection." : e.message, true); }
 }
 async function stravaDisconnect() {
-  try { if (S?.access) await fetch("https://www.strava.com/oauth/deauthorize", { method: "POST", credentials: "omit", body: new URLSearchParams({ access_token: S.access }) }); } catch {}
+  try { if (S?.access) await sfetch("https://www.strava.com/oauth/deauthorize", { method: "POST", form: { access_token: S.access } }); } catch {}
   S = null; try { localStorage.removeItem(STRAVA); } catch {} A.workouts = A.workouts.filter(w => w.source !== "Strava"); persist(); renderAll();
   msg("Strava disconnected. Your Strava keys and synced activities were deleted from this device.");
 }
@@ -270,7 +284,7 @@ export function parseFTMS(kind, dv) {
   const u24 = () => { const v = dv.getUint16(o, true) | (dv.getUint8(o + 2) << 16); o += 3; return v; };
   if (kind === "treadmill") {
     const f = u16();
-    if (!(f & 1)) out.kmh = u16() / 100; if (f & 2) u16(); if (f & 4) out.meters = u24(); if (f & 8) { s16(); s16(); } if (f & 16) { u16(); u16(); }
+    if (!(f & 1)) out.kmh = u16() / 100; if (f & 2) u16(); if (f & 4) out.meters = u24(); if (f & 8) { out.incline = s16() / 10; s16(); } if (f & 16) { u16(); u16(); }
     if (f & 32) u8(); if (f & 64) u8(); if (f & 128) { out.kcal = u16(); u16(); u8(); } if (f & 256) out.hr = u8(); if (f & 512) u8(); if (f & 1024) out.secs = u16();
   } else if (kind === "bike") {
     const f = u16();
@@ -286,7 +300,7 @@ export function parseFTMS(kind, dv) {
 }
 let machine = null;
 async function connectMachine() {
-  if (!navigator.bluetooth) return msg("This browser can't use Bluetooth. Use Chrome on Android, Windows or Mac (on Linux, turn on chrome://flags/#enable-experimental-web-platform-features; in Brave, turn on brave://flags/#brave-web-bluetooth-api).", true);
+  if (!navigator.bluetooth) return msg("This browser can't use Bluetooth. Use the FormIQ Android app, or Chrome on Android, Windows or Mac (on Linux, turn on chrome://flags/#enable-experimental-web-platform-features; in Brave, turn on brave://flags/#brave-web-bluetooth-api).", true);
   try {
     const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: [0x1826] }] });
     msg(`Connecting to ${dev.name || "machine"}…`);
@@ -322,11 +336,77 @@ function renderMachine() {
     .map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
 }
 
+/* ---------- Android app only: all-day steps (on-device) and Health Connect ---------- */
+const HC_KEY = "formiq.hc.v1";
+let HC = load(HC_KEY, { write: true, written: [] });
+const nat = (m, a) => window.FormIQNative.call(m, a);
+async function phoneStepsRefresh() {
+  try { const r = await nat("stepsRead", { days: 10 }); for (const [d, v] of Object.entries(r || {})) day(d).phone = Math.round(v); persist(); renderToday(); renderWeek(); } catch {}
+}
+async function hcSync(quiet) {
+  try {
+    const r = await nat("hcRead", { days: 30 });
+    for (const [d, v] of Object.entries(r.steps || {})) day(d).hc = Math.round(v);
+    const n = addWorkouts((r.sessions || []).map(x => ({ id: x.id, source: x.app, type: x.type, name: x.title || "", start: x.start, minutes: x.minutes })));
+    let out = 0;
+    if (HC.write) {
+      const mine = allWorkouts().filter(w => (w.source === "FormIQ" || w.source === "FormIQ Ride") && !HC.written.includes(w.id) && Date.now() - w.start < 30 * 864e5);
+      for (const w of mine) {
+        await nat("hcWrite", { id: w.id, start: w.start, seconds: Math.max(60, (w.minutes || 1) * 60), title: w.source === "FormIQ" ? `FormIQ: ${w.name}` : `FormIQ Ride: ${w.name}`,
+          type: w.source === "FormIQ" ? "strength" : /ride/i.test(w.type) ? "ride" : /walk/i.test(w.type) ? "walk" : "run", meters: (w.km || 0) * 1000 });
+        HC.written.push(w.id); out++;
+      }
+      HC.written = HC.written.slice(-500); save(HC_KEY, HC);
+    }
+    persist(); renderAll(); if (!quiet) msg(`Health Connect synced: ${n} new workouts in, ${out} FormIQ workouts saved.`);
+  } catch (e) { if (!quiet) msg(e.message || "Health Connect sync failed.", true); }
+}
+async function renderNative() {
+  const box = $("nativeBox"); if (!box) return;
+  if (!NATIVE()) { box.hidden = true; return; }
+  box.hidden = false;
+  let st = {}, hc = {};
+  try { st = await nat("stepsStatus"); } catch {}
+  try { hc = await nat("hcStatus"); } catch {}
+  $("phoneSteps").innerHTML = !st.available ? `<p class="muted">All-day steps need Google Play services, which this phone doesn't have. Use Health Connect or "Count steps now".</p>` :
+    st.enabled ? `<p class="muted">On. Your phone counts steps all day, even when FormIQ is closed. The count stays on your phone.</p><div class="controls"><button id="psOff">Turn off</button></div>`
+    : `<p class="muted">Count steps all day without opening FormIQ. Uses your phone's built-in step sensor through Google Play services; nothing leaves your phone.</p><div class="controls"><button class="primary" id="psOn">Turn on all-day steps</button></div>`;
+  $("psOn") && ($("psOn").onclick = async () => { try { await nat("stepsEnable"); msg("All-day steps are on. Steps from now on will appear here."); await phoneStepsRefresh(); } catch (e) { msg(e.message, true); } renderNative(); });
+  $("psOff") && ($("psOff").onclick = async () => { await nat("stepsDisable").catch(() => {}); renderNative(); });
+  $("hcBox").innerHTML = hc.status === "unavailable" ? `<p class="muted">Health Connect isn't available on this phone.</p>` :
+    hc.connected ? `<p class="muted">Connected. FormIQ reads your daily steps and workouts from other apps (Google Fit, Samsung Health, Fitbit and more)${hc.write ? " and saves your FormIQ workouts there" : ""}.</p>
+      <label class="check" for="hcWrite"><input type="checkbox" id="hcWrite" ${HC.write ? "checked" : ""}> Save my FormIQ workouts and rides to Health Connect</label>
+      <div class="controls"><button class="primary" id="hcSync">Sync now</button><button id="hcOff">Disconnect</button></div>`
+    : `<p class="muted">Share steps and workouts with Google Fit, Samsung Health, Fitbit and other apps through Android's Health Connect. You choose exactly what FormIQ may read and write.${hc.status === "update" ? " You'll be asked to install or update Health Connect first." : ""}</p>
+      <div class="controls"><button class="primary" id="hcOn">Connect Health Connect</button></div>`;
+  $("hcOn") && ($("hcOn").onclick = async () => { try { const r = await nat("hcConnect"); if (r.connected) { msg("Health Connect connected."); await hcSync(true); } } catch (e) { msg(e.message, true); } renderNative(); });
+  $("hcSync") && ($("hcSync").onclick = () => hcSync(false));
+  $("hcWrite") && ($("hcWrite").onchange = e => { HC.write = e.target.checked; save(HC_KEY, HC); });
+  $("hcOff") && ($("hcOff").onclick = async () => { await nat("hcDisconnect").catch(() => {}); A.workouts = A.workouts.filter(w => !String(w.id).startsWith("hc-"));
+    for (const d of Object.values(A.days)) delete d.hc; persist(); renderAll(); renderNative(); msg("Health Connect disconnected. Data FormIQ had read from it was removed from this device."); });
+}
+async function nativeRefresh() {
+  if (!NATIVE()) return;
+  try { if ((await nat("stepsStatus")).enabled) await phoneStepsRefresh(); } catch {}
+  try { if ((await nat("hcStatus")).connected) await hcSync(true); } catch {}
+}
+
 /* ---------- export (data portability) ---------- */
+/* save a file: Android app uses the native save dialog; browsers download it */
+export function saveFile(name, mime, text) {
+  if (window.FormIQNative?.saveFile) { window.FormIQNative.saveFile(name, mime, text); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+/* used by the Ride tab */
+export function logWorkout(w, steps) { addWorkouts([w]); if (steps) { day().machine = (day().machine || 0) + steps; persist(); } renderAll(); }
+export const stravaReady = () => !!(S?.refresh && (S.scope || "").includes("activity:write"));
+export async function stravaUploadTcx(tcx, name, description) {
+  return strava("/uploads", { method: "POST", multipart: { fields: { data_type: "tcx", name, description, trainer: "1" },
+    file: { field: "file", name: "formiq.tcx", mime: "application/vnd.garmin.tcx+xml", text: tcx } } });
+}
 function exportData() {
   const all = {}; try { for (const k of Object.keys(localStorage)) if (k.startsWith("formiq.") && !/key|strava|ai\.cfg/.test(k)) all[k] = JSON.parse(localStorage.getItem(k)); } catch {}
-  const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), app: "FormIQ", data: all }, null, 2)], { type: "application/json" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `formiq-data-${dayKey()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  saveFile(`formiq-data-${dayKey()}.json`, "application/json", JSON.stringify({ exported: new Date().toISOString(), app: "FormIQ", data: all }, null, 2));
 }
 
 /* ---------- rendering ---------- */
@@ -342,7 +422,7 @@ function ringSvg(pct, label, sub) {
 function renderToday() {
   const k = dayKey(), s = stepsFor(k), g = A.goals.steps, d = A.days[k] || {};
   $("stepRing").innerHTML = ringSvg(s / g, fmt(s), `of ${fmt(g)} steps`);
-  const parts = [["Counted here", (d.live || 0) + (d.manual || 0)], ["Machines", d.machine || 0], ["Apple Health", d.apple || 0], ["Imported file", d.csv || 0]].filter(([, v]) => v);
+  const parts = [["Counted here", (d.live || 0) + (d.manual || 0)], ["All-day (phone)", d.phone || 0], ["Health Connect", d.hc || 0], ["Machines", d.machine || 0], ["Apple Health", d.apple || 0], ["Imported file", d.csv || 0]].filter(([, v]) => v);
   $("stepSources").innerHTML = parts.length ? parts.map(([n, v]) => `<li><span>${n}</span><b>${fmt(v)}</b></li>`).join("") : `<li class="muted">No steps yet today.</li>`;
   let streak = 0; for (let i = 0; i < 365; i++) { const dd = new Date(); dd.setDate(dd.getDate() - i); const ok = stepsFor(dayKey(dd)) >= g; if (ok) streak++; else if (i > 0) break; }
   $("stepStreak").textContent = s >= g ? `Goal reached. ${streak}-day streak.` : `${fmt(g - s)} to go${streak ? ` · ${streak}-day streak` : ""}`;
@@ -375,7 +455,7 @@ function renderStrava() {
     box.innerHTML = `<p class="muted">Sync activities both ways using your own free Strava API app. Its keys stay on this device.</p>
       <details><summary>Set up (2 minutes)</summary><ol class="steps">
         <li>Open <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer">strava.com/settings/api</a> and create an app (any name and website).</li>
-        <li>Set <b>Authorization Callback Domain</b> to <code>${esc(location.hostname)}</code>.</li>
+        <li>Set <b>Authorization Callback Domain</b> to <code>${esc(callbackDomain())}</code>.</li>
         <li>Copy the Client ID and Client Secret here.</li></ol>
         <div class="formrow"><input id="stravaId" inputmode="numeric" placeholder="Client ID" aria-label="Strava Client ID">
         <input id="stravaSecret" type="password" placeholder="Client Secret" aria-label="Strava Client Secret" autocomplete="off"></div>
@@ -409,5 +489,6 @@ export async function initActivity() {
   $("exportBtn").onclick = exportData;
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && counting) msg("Counting paused while FormIQ is in the background. Imported steps fill the gaps.", true); });
   renderAll();
+  if (NATIVE()) { renderNative(); nativeRefresh(); window.FormIQNative.on("resume", () => nativeRefresh()); }
   if (await stravaCallback()) document.dispatchEvent(new CustomEvent("formiq:showtab", { detail: "activity" }));
 }
