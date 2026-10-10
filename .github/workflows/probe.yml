@@ -1,0 +1,38 @@
+# One-off environment probe: records available Android SDK pieces and library versions to the ci-logs branch.
+name: Probe build environment
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/probe.yml']
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect
+        run: |
+          {
+          echo "== java"; java -version 2>&1
+          echo "== ANDROID_HOME=$ANDROID_HOME"; ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" 2>&1
+          meta() { echo "== $1"; curl -fsSL "$2" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' | tail -n ${3:-12} | tr '\n' ' '; echo; }
+          G=https://dl.google.com/android/maven2; M=https://repo1.maven.org/maven2
+          meta agp $G/com/android/tools/build/gradle/maven-metadata.xml 30
+          meta health-connect $G/androidx/health/connect/connect-client/maven-metadata.xml 20
+          meta play-services-fitness $G/com/google/android/gms/play-services-fitness/maven-metadata.xml
+          meta webkit $G/androidx/webkit/webkit/maven-metadata.xml
+          meta appcompat $G/androidx/appcompat/appcompat/maven-metadata.xml
+          meta core-ktx $G/androidx/core/core-ktx/maven-metadata.xml
+          meta activity-ktx $G/androidx/activity/activity-ktx/maven-metadata.xml
+          meta work $G/androidx/work/work-runtime-ktx/maven-metadata.xml
+          meta lifecycle $G/androidx/lifecycle/lifecycle-runtime-ktx/maven-metadata.xml
+          meta kotlin-plugin $M/org/jetbrains/kotlin/kotlin-gradle-plugin/maven-metadata.xml 30
+          meta coroutines $M/org/jetbrains/kotlinx/kotlinx-coroutines-android/maven-metadata.xml
+          echo "== gradle"; curl -fsSL https://services.gradle.org/versions/current | head -c 300; echo
+          } > probe.txt 2>&1
+          cat probe.txt
+      - name: Save to ci-logs branch
+        run: |
+          git init -q out && cd out && cp ../probe.txt . && git checkout -q -b ci-logs
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add probe.txt && git commit -qm "probe" && git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-logs
