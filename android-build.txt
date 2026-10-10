@@ -1,4 +1,4 @@
-run 4 · success · signed=1 · Sat Oct 10 09:55:50 UTC 2026
+run 5 · success · signed=1 · Sat Oct 10 14:48:16 UTC 2026
 == errors
 3:> Task :app:preBuild UP-TO-DATE
 4:> Task :app:preReleaseBuild UP-TO-DATE
@@ -19,15 +19,15 @@ run 4 · success · signed=1 · Sat Oct 10 09:55:50 UTC 2026
 19:> Task :app:generateReleaseResources
 20:> Task :app:packageReleaseResources
 21:> Task :app:createReleaseCompatibleScreenManifests
-22:> Task :app:mergeReleaseResources
-23:> Task :app:extractDeepLinksRelease
-24:> Task :app:parseReleaseLocalResources
+22:> Task :app:extractDeepLinksRelease
+23:> Task :app:parseReleaseLocalResources
+24:> Task :app:mergeReleaseResources
 25:> Task :app:processReleaseMainManifest
 26:> Task :app:processReleaseManifest
-27:> Task :app:processReleaseManifestForPackage
-28:> Task :app:javaPreCompileRelease
-29:> Task :app:desugarReleaseFileDependencies
-30:> Task :app:mergeReleaseStartupProfile
+27:> Task :app:javaPreCompileRelease
+28:> Task :app:desugarReleaseFileDependencies
+29:> Task :app:mergeReleaseStartupProfile
+30:> Task :app:processReleaseManifestForPackage
 31:> Task :app:mergeReleaseArtProfile
 32:> Task :app:mergeReleaseShaders
 33:> Task :app:compileReleaseShaders NO-SOURCE
@@ -44,16 +44,16 @@ run 4 · success · signed=1 · Sat Oct 10 09:55:50 UTC 2026
 44:> Task :app:optimizeReleaseResources
 45:> Task :app:mergeExtDexRelease
 47:> Task :app:compileReleaseKotlin
-51:> Task :app:compileReleaseJavaWithJavac
-52:> Task :app:dexBuilderRelease
-53:> Task :app:mergeReleaseGlobalSynthetics
-54:> Task :app:processReleaseJavaRes
-55:> Task :app:mergeReleaseJavaResource
-56:> Task :app:mergeDexRelease
-57:> Task :app:compileReleaseArtProfile
-58:> Task :app:packageRelease
-59:> Task :app:createReleaseApkListingFileRedirect
-60:> Task :app:assembleRelease
+52:> Task :app:compileReleaseJavaWithJavac
+53:> Task :app:dexBuilderRelease
+54:> Task :app:mergeReleaseGlobalSynthetics
+55:> Task :app:processReleaseJavaRes
+56:> Task :app:mergeReleaseJavaResource
+57:> Task :app:mergeDexRelease
+58:> Task :app:compileReleaseArtProfile
+59:> Task :app:packageRelease
+60:> Task :app:createReleaseApkListingFileRedirect
+61:> Task :app:assembleRelease
 == tail
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
@@ -76,15 +76,15 @@ Daemon will be stopped at the end of the build
 > Task :app:generateReleaseResources
 > Task :app:packageReleaseResources
 > Task :app:createReleaseCompatibleScreenManifests
-> Task :app:mergeReleaseResources
 > Task :app:extractDeepLinksRelease
 > Task :app:parseReleaseLocalResources
+> Task :app:mergeReleaseResources
 > Task :app:processReleaseMainManifest
 > Task :app:processReleaseManifest
-> Task :app:processReleaseManifestForPackage
 > Task :app:javaPreCompileRelease
 > Task :app:desugarReleaseFileDependencies
 > Task :app:mergeReleaseStartupProfile
+> Task :app:processReleaseManifestForPackage
 > Task :app:mergeReleaseArtProfile
 > Task :app:mergeReleaseShaders
 > Task :app:compileReleaseShaders NO-SOURCE
@@ -104,6 +104,7 @@ Daemon will be stopped at the end of the build
 > Task :app:compileReleaseKotlin
 w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/superclearice97/formiq/Ble.kt:173:22 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
 w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/superclearice97/formiq/Ble.kt:176:22 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/superclearice97/formiq/MainActivity.kt:173:13 'var saveFormData: Boolean' is deprecated. Deprecated in Java.
 
 > Task :app:compileReleaseJavaWithJavac
 > Task :app:dexBuilderRelease
@@ -115,13 +116,13 @@ w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/su
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791626111999.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791643645984.json
 
-BUILD SUCCESSFUL in 37s
+BUILD SUCCESSFUL in 48s
 44 actionable tasks: 44 executed
-total 24336
-drwxr-xr-x 3 runner runner     4096 Oct 10 09:55 .
-drwxr-xr-x 3 runner runner     4096 Oct 10 09:55 ..
--rw-r--r-- 1 runner runner 24902751 Oct 10 09:55 app-release.apk
-drwxr-xr-x 4 runner runner     4096 Oct 10 09:55 baselineProfiles
--rw-r--r-- 1 runner runner      722 Oct 10 09:55 output-metadata.json
+total 24472
+drwxr-xr-x 3 runner runner     4096 Oct 10 14:48 .
+drwxr-xr-x 3 runner runner     4096 Oct 10 14:48 ..
+-rw-r--r-- 1 runner runner 25042668 Oct 10 14:48 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 10 14:48 baselineProfiles
+-rw-r--r-- 1 runner runner      722 Oct 10 14:48 output-metadata.json
