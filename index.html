@@ -7,7 +7,7 @@
 <title>FormIQ</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com https://api.github.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<script src="native.js?v=18"></script>
+<script src="native.js?v=19"></script>
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
 @font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
@@ -417,7 +417,7 @@ footer a{color:var(--muted)}
         <div class="overlay" id="overlay">
           <div>
             <strong id="ovTitle">Set up your camera</strong>
-            <p id="ovText">Prop your phone or laptop 2–3 m away, side-on for squats and push-ups, facing you for curls and presses. Your whole body should fit in frame.</p>
+            <p id="ovText">Prop your phone or laptop 2–3 m away so your whole body, feet included, fits in frame. Squats work from the front or the side; push-ups side-on; curls and presses facing the camera. Stand still for a second at the start so FormIQ can learn your starting position.</p>
             <button class="primary" id="startBtn">Start camera</button>
           </div>
         </div>
@@ -527,6 +527,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=18"></script>
+<script type="module" src="app.js?v=19"></script>
 </body>
 </html>

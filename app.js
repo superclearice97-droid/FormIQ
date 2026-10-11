@@ -1,145 +1,45 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=18";
+import "./secure.js?v=19";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=18";
-import { initAI } from "./ai.js?v=18";
-import { initActivity } from "./activity.js?v=18";
-import { initRide } from "./ride.js?v=18";
+import { initFood } from "./food.js?v=19";
+import { initAI } from "./ai.js?v=19";
+import { initActivity } from "./activity.js?v=19";
+import { initRide } from "./ride.js?v=19";
+import { EX, createTracker } from "./reps.js?v=19";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
 
-/* ---------- landmark helpers ---------- */
-const L={ls:11,rs:12,le:13,re:14,lw:15,rw:16,lh:23,rh:24,lk:25,rk:26,la:27,ra:28};
-const angle=(a,b,c)=>{const ab=Math.atan2(a.y-b.y,a.x-b.x),cb=Math.atan2(c.y-b.y,c.x-b.x);let d=Math.abs((ab-cb)*180/Math.PI);return d>180?360-d:d;};
+/* Rep counting, depth and form checks live in reps.js (tested on recorded workouts). */
 const VIS=0.35;
-const vis=(lm,ids)=>ids.every(i=>(lm[i].visibility??1)>VIS);
-/* 3D joint angle from MediaPipe world landmarks (metres, hip-centred) so camera angle distorts less */
-const angle3=(a,b,c)=>{const u=[a.x-b.x,a.y-b.y,a.z-b.z],v=[c.x-b.x,c.y-b.y,c.z-b.z];
-  const d=u[0]*v[0]+u[1]*v[1]+u[2]*v[2],m=Math.hypot(...u)*Math.hypot(...v)||1;return Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI;};
-let W=null, IMG=null;
-const A=(s,a,b,c)=>{const i=L[s+a],j=L[s+b],k=L[s+c];return W?angle3(W[i],W[j],W[k]):angle(IMG[i],IMG[j],IMG[k]);};
-/* One Euro filter: removes jitter when still, stays responsive when moving fast */
-class OneEuro{constructor(mc=1.2,beta=0.03,dc=1){this.mc=mc;this.beta=beta;this.dc=dc;this.x=null;this.dx=0;this.t=0;}
-  a(c,dt){const r=2*Math.PI*c*dt;return r/(r+1);}
-  f(x,t){if(this.x==null){this.x=x;this.t=t;return x;}const dt=Math.max(1e-3,(t-this.t)/1000);this.t=t;
-    const dx=(x-this.x)/dt;this.dx+=this.a(this.dc,dt)*(dx-this.dx);const c=this.mc+this.beta*Math.abs(this.dx);this.x+=this.a(c,dt)*(x-this.x);return this.x;}}
-let filters={};
-function smoothLm(key,lm,t,mc,beta){const F=filters[key]||(filters[key]=lm.map(()=>({x:new OneEuro(mc,beta),y:new OneEuro(mc,beta),z:new OneEuro(mc,beta)})));
-  return lm.map((p,i)=>({x:F[i].x.f(p.x,t),y:F[i].y.f(p.y,t),z:F[i].z.f(p.z,t),visibility:p.visibility}));}
-const side=(lm)=>{const l=[11,13,15,23,25,27].reduce((s,i)=>s+(lm[i].visibility??0),0),r=[12,14,16,24,26,28].reduce((s,i)=>s+(lm[i].visibility??0),0);return l>=r?"l":"r";};
-const P=(lm,s,n)=>lm[L[s+n]];
-
-/* ---------- exercise definitions ----------
-   metric(lm) -> {angle, ok, extra}. start: which end of the range a rep starts from.
-   lo/hi are hysteresis thresholds; target is the ideal extreme for full range. */
-const EX={
-  squat:{name:"Squat",hint:"side view",start:"high",lo:105,hi:155,target:90,worst:125,
-    need:s=>[s+"h",s+"k",s+"a",s+"s"],
-    metric(lm,s){const h=P(lm,s,"h"),sh=P(lm,s,"s");
-      const lean=Math.abs(Math.atan2(sh.x-h.x,h.y-sh.y)*180/Math.PI);
-      return {angle:A(s,"h","k","a"),lean};},
-    faults(f){const out=[];if(f.maxLean>50)out.push("Chest up, too much forward lean");return out;},
-    track(f,m,phase){if(phase==="bottom")f.maxLean=Math.max(f.maxLean||0,m.lean);}},
-  pushup:{name:"Push-up",hint:"side view",start:"high",lo:95,hi:155,target:80,worst:115,
-    need:s=>[s+"s",s+"e",s+"w",s+"h",s+"a"],
-    metric(lm,s){return {angle:A(s,"s","e","w"),line:A(s,"s","h","a")};},
-    faults(f){const o=[];if(f.minLine<155)o.push("Keep hips in line with shoulders and ankles");return o;},
-    track(f,m){f.minLine=Math.min(f.minLine??180,m.line);}},
-  curl:{name:"Bicep curl",hint:"face camera",fuse:true,start:"high",lo:60,hi:145,target:40,worst:80,
-    need:s=>[s+"s",s+"e",s+"w",s+"h"],
-    metric(lm,s){const sh=P(lm,s,"s"),e=P(lm,s,"e"),h=P(lm,s,"h");const torso=Math.hypot(sh.x-h.x,sh.y-h.y)||1;
-      return {angle:A(s,"s","e","w"),drift:Math.abs(e.x-sh.x)/torso};},
-    faults(f){const o=[];if(f.maxDrift>0.35)o.push("Pin elbows to your sides");return o;},
-    track(f,m){f.maxDrift=Math.max(f.maxDrift||0,m.drift);}},
-  press:{name:"Overhead press",hint:"face camera",fuse:true,start:"low",lo:95,hi:155,target:170,worst:145,
-    need:s=>[s+"s",s+"e",s+"w",s+"h"],
-    metric(lm,s){return {angle:A(s,"s","e","w")};},
-    faults(){return [];},
-    track(){}},
-};
-
 /* ---------- state ---------- */
 let fps=0,fpsN=0,fpsT=performance.now();
 let landmarker=null, stream=null, facing="user", running=false, voice=true, lastTs=-1;
 let exKey="squat";
-let rep=newRepState(), set=newSet(), sets=[], restTimer=null, smooth=null, lastRepAt=0;
-function newRepState(){return {phase:"start",minAngle:999,maxAngle:0,startedAt:0,f:{}};}
+const tracker=createTracker(exKey);
+let set=newSet(), sets=[], restTimer=null, lastRepAt=0;
 function newSet(){return {ex:exKey,reps:[],started:Date.now()};}
 
 /* ---------- UI: exercise picker ---------- */
 function renderEx(){
   $("exList").innerHTML=Object.entries(EX).map(([k,e])=>`<button type="button" data-k="${k}" aria-pressed="${k===exKey}">${e.name}<small>${e.hint}</small></button>`).join("");
-  $("exList").querySelectorAll("button").forEach(b=>b.onclick=()=>{if(set.reps.length)finishSet();exKey=b.dataset.k;set=newSet();rep=newRepState();smooth=null;curSide=null;renderEx();renderLive();});
-}
-
-/* ---------- scoring ---------- */
-function scoreRep(def,r){
-  const ext= def.start==="high"? r.minAngle : r.maxAngle;   // the extreme the movement should reach
-  let rom = def.start==="high" ? (def.worst-ext)/(def.worst-def.target) : (ext-def.worst)/(def.target-def.worst);
-  rom=Math.max(0,Math.min(1,rom));
-  const faults=def.faults({...r.f,maxAngle:r.maxAngle,minAngle:r.minAngle});
-  const dur=(performance.now()-r.startedAt)/1000;
-  if(dur<0.9) faults.push("Slow down, control the movement");
-  if(rom<0.6) faults.unshift(def.start==="high"?"Go deeper for full range":"Press higher for full range");
-  const score=Math.round(Math.max(0, rom*100 - (faults.length-(rom<0.6?1:0))*15));
-  return {score,faults,dur:+dur.toFixed(1),rom:Math.round(rom*100)};
+  $("exList").querySelectorAll("button").forEach(b=>b.onclick=()=>{if(set.reps.length)finishSet();exKey=b.dataset.k;set=newSet();tracker.setExercise(exKey);renderEx();renderLive();});
 }
 
 /* ---------- per-frame analysis ---------- */
-let curSide=null, lostSince=0;
-const sideScore=(lm,def,s)=>def.need(s).reduce((t,n)=>t+(lm[L[n]].visibility??0),0)/def.need(s).length;
-function pickSide(lm,def){
-  const l=sideScore(lm,def,"l"), r=sideScore(lm,def,"r");
-  // only switch sides between reps, and only when the other side is clearly better
-  if(!curSide || (rep.phase==="start" && Math.abs(l-r)>0.15)) curSide = l>=r?"l":"r";
-  return {s:curSide, q:Math.max(l,r), both: l>0.6 && r>0.6};
-}
-function framing(lm){
-  const ys=[0,11,12,23,24,27,28].map(i=>lm[i]).filter(p=>(p.visibility??0)>VIS).map(p=>p.y);
-  if(ys.length<3) return null;
-  const top=Math.min(...ys), bot=Math.max(...ys);
-  if(top<0.02||bot>0.98) return "Step back so your whole body fits";
-  if(bot-top<0.35) return "Move closer to the camera";
-  return null;
-}
-function analyze(lm){
-  const def=EX[exKey], {s,q,both}=pickSide(lm,def);
-  const need=def.need(s).map(n=>L[n]);
-  if(!vis(lm,need)){
-    // brief dropouts (a hand passing the body, motion blur) keep the rep alive
-    if(!lostSince) lostSince=performance.now();
-    if(performance.now()-lostSince>600){setPhase("Not in frame");hud([[fps+" fps",""],[framing(lm)||("Turn so your "+(def.hint==="side view"?"side faces the camera":"front faces the camera")),"warn"]]);}
-    return;
-  }
-  lostSince=0;
-  let m=def.metric(lm,s);
-  if(def.fuse && both){ const o=def.metric(lm,s==="l"?"r":"l"); m={...m,angle:(m.angle+o.angle)/2}; }
-  smooth = smooth==null? m.angle : smooth*0.3 + m.angle*0.7;
-  const a=smooth;
-  const atStart = def.start==="high" ? a>=def.hi : a<=def.lo;
-  const atEnd   = def.start==="high" ? a<=def.lo : a>=def.hi;
-
-  if(rep.phase==="start"){ if(!atStart){rep.phase="moving";rep.startedAt=performance.now();rep.minAngle=a;rep.maxAngle=a;rep.f={};} }
-  if(rep.phase!=="start"){
-    rep.minAngle=Math.min(rep.minAngle,a); rep.maxAngle=Math.max(rep.maxAngle,a);
-    if(atEnd) rep.phase="bottom";
-    def.track(rep.f,m,rep.phase);
-    if(rep.phase==="bottom" && atStart){ countRep(def); }
-    else if(rep.phase==="moving" && atStart){ rep=newRepState(); } // partial movement, abandoned
-  }
-  // live range-of-motion bar
-  const prog = def.start==="high" ? (def.hi-a)/(def.hi-def.target) : (a-def.lo)/(def.target-def.lo);
-  $("romBar").style.width=Math.max(0,Math.min(1,prog))*100+"%";
-  setPhase(rep.phase==="start"?"Ready":rep.phase==="bottom"?"Return":"Moving");
-  const fr=framing(lm);
-  hud([[`${Math.round(a)}°`,""],[q>0.75?"Tracking good":"Tracking weak",q>0.75?"good":"warn"],[fps+" fps",fps&&fps<12?"warn":""]].concat(fr?[[fr,"warn"]]:[]));
+function analyze(r){
+  const def=EX[exKey];
+  if(r.state==="noperson"){ setPhase("No person"); hud([["No person detected","warn"],[fps+" fps",""]]); return; }
+  if(r.state==="hold") return;   // brief dropout (a hand passing the body, motion blur): keep the rep alive
+  if(r.state==="lost"){ setPhase("Not in frame"); hud([[fps+" fps",""],[r.framing||("Turn so your "+(def.hint==="side view"?"side faces the camera":"whole body is in view")),"warn"]]); return; }
+  if(r.rep) countRep(r.rep);
+  $("romBar").style.width=r.prog*100+"%";
+  setPhase(r.phase==="calibrating"?"Hold still…":r.phase==="start"?"Ready":r.phase==="bottom"?"Return":"Moving");
+  hud([[r.label,""],[r.quality>0.75?"Tracking good":"Tracking weak",r.quality>0.75?"good":"warn"],[fps+" fps",fps&&fps<10?"warn":""]].concat(r.framing?[[r.framing,"warn"]]:[]));
 }
 
-function countRep(def){
-  const res=scoreRep(def,rep);
+function countRep(res){
   set.reps.push(res); lastRepAt=Date.now();
-  rep=newRepState();
   renderLive(res);
   speak(String(set.reps.length));
   const target=+$("targetReps").value||10;
@@ -157,7 +57,7 @@ function finishSet(){
   if(!set.reps.length) return;
   const sm=summarize(set); sets.push(sm);
   speak(`Set done. ${sm.reps} reps, ${sm.acc} percent.`);
-  set=newSet(); rep=newRepState(); renderSets(); renderLive(); startRest();
+  set=newSet(); tracker.setExercise(exKey); renderSets(); renderLive(); startRest();
 }
 function startRest(){
   clearInterval(restTimer); let t=+$("restSec").value||0; if(!t) return;
@@ -251,11 +151,8 @@ function loop(){
     try{ res=landmarker.detectForVideo(video,performance.now()); }
     catch(err){ $("status").textContent="Pose tracking error: "+(err.message||err); schedule(); return; }
     const t=performance.now(); fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
-    const raw=res.landmarks?.[0], rawW=res.worldLandmarks?.[0];
-    if(raw){
-      IMG=smoothLm("img",raw,t,1.7,0.8); W=rawW?smoothLm("world",rawW,t,1.7,0.8):null;
-      draw(IMG); analyze(IMG);
-    } else { filters={}; IMG=W=null; draw(null); setPhase("No person"); hud([["No person detected","warn"],[fps+" fps",""]]); }
+    const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, t, (video.videoWidth||4)/(video.videoHeight||3));
+    draw(r.img||null); analyze(r);
   }
   schedule();
 }
@@ -295,7 +192,7 @@ async function startCamera(){
   try{
     $("startBtn").disabled=true; $("camBtn").disabled=true;
     await loadModel();
-    stopSource(); filters={};
+    stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey);
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:640},height:{ideal:480},frameRate:{ideal:30}},audio:false});
     video.srcObject=stream;
     await new Promise(r=>{ if(video.readyState>=1) r(); else video.onloadedmetadata=()=>r(); });
@@ -318,7 +215,7 @@ $("flipBtn").onclick=()=>{facing=facing==="user"?"environment":"user";startCamer
 $("endSetBtn").onclick=finishSet;
 $("videoFile").onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
-  await loadModel(); stopSource(); filters={};
+  await loadModel(); stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey);
   video.srcObject=null; video.src=URL.createObjectURL(f); video.classList.remove("mirror"); canvas.classList.remove("mirror");
   video.onended=()=>{finishSet();running=false;$("status").textContent="Video analyzed.";};
   await video.play(); $("overlay").hidden=true; $("bigrep").hidden=false; running=true; lastTs=-1; loop();
@@ -327,7 +224,7 @@ $("quality").value=modelKey;
 $("quality").onchange=async()=>{
   modelKey=$("quality").value; try{localStorage.setItem("formiq.quality",modelKey)}catch{}
   const wasRunning=running; running=false;
-  try{landmarker?.close();}catch{} landmarker=null; filters={};
+  try{landmarker?.close();}catch{} landmarker=null; tracker.resetSmoothing();
   await loadModel(); if(wasRunning){running=true;lastTs=-1;loop();}
 };
 $("fileBtn").onclick=async()=>{ if(await ensureConsent()) $("videoFile").click(); };
