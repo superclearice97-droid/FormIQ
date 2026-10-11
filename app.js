@@ -1,11 +1,11 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=19";
+import "./secure.js?v=20";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=19";
-import { initAI } from "./ai.js?v=19";
-import { initActivity } from "./activity.js?v=19";
-import { initRide } from "./ride.js?v=19";
-import { EX, createTracker } from "./reps.js?v=19";
+import { initFood } from "./food.js?v=20";
+import { initAI } from "./ai.js?v=20";
+import { initActivity } from "./activity.js?v=20";
+import { initRide } from "./ride.js?v=20";
+import { EX, createTracker } from "./reps.js?v=20";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -32,9 +32,10 @@ function analyze(r){
   if(r.state==="noperson"){ setPhase("No person"); hud([["No person detected","warn"],[fps+" fps",""]]); return; }
   if(r.state==="hold") return;   // brief dropout (a hand passing the body, motion blur): keep the rep alive
   if(r.state==="lost"){ setPhase("Not in frame"); hud([[fps+" fps",""],[r.framing||("Turn so your "+(def.hint==="side view"?"side faces the camera":"whole body is in view")),"warn"]]); return; }
+  if(r.state==="posture"){ $("romBar").style.width="0%"; setPhase("Waiting"); hud([[r.hint,"warn"],[fps+" fps",fps&&fps<10?"warn":""]].concat(r.framing?[[r.framing,"warn"]]:[])); return; }
   if(r.rep) countRep(r.rep);
   $("romBar").style.width=r.prog*100+"%";
-  setPhase(r.phase==="calibrating"?"Hold still…":r.phase==="start"?"Ready":r.phase==="bottom"?"Return":"Moving");
+  setPhase(r.phase==="calibrating"?"Get set…":r.phase==="top"?"Ready":r.phase==="bottom"?"Return":"Moving");
   hud([[r.label,""],[r.quality>0.75?"Tracking good":"Tracking weak",r.quality>0.75?"good":"warn"],[fps+" fps",fps&&fps<10?"warn":""]].concat(r.framing?[[r.framing,"warn"]]:[]));
 }
 
@@ -151,7 +152,7 @@ function loop(){
     try{ res=landmarker.detectForVideo(video,performance.now()); }
     catch(err){ $("status").textContent="Pose tracking error: "+(err.message||err); schedule(); return; }
     const t=performance.now(); fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
-    const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, t, (video.videoWidth||4)/(video.videoHeight||3));
+    const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?t:video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
     draw(r.img||null); analyze(r);
   }
   schedule();
@@ -193,7 +194,7 @@ async function startCamera(){
     $("startBtn").disabled=true; $("camBtn").disabled=true;
     await loadModel();
     stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey);
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:640},height:{ideal:480},frameRate:{ideal:30}},audio:false});
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
     video.srcObject=stream;
     await new Promise(r=>{ if(video.readyState>=1) r(); else video.onloadedmetadata=()=>r(); });
     await video.play();

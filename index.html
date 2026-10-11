@@ -7,7 +7,7 @@
 <title>FormIQ</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com https://api.github.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<script src="native.js?v=19"></script>
+<script src="native.js?v=20"></script>
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
 @font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
@@ -432,11 +432,12 @@ footer a{color:var(--muted)}
         <label class="field" for="quality">Tracking
           <select id="quality">
             <option value="lite">Fast</option>
-            <option value="full" selected>Balanced</option>
+            <option value="full" selected>Balanced (recommended)</option>
             <option value="heavy">Accurate</option>
           </select></label>
       </div>
       <p class="note" id="status">The pose model loads the first time you start. Everything runs on this device.</p>
+      <p class="note">Rep counter v2 (11 Oct 2026): push-ups count only in push-up position; squats, curls and presses only standing.</p>
     </section>
 
     <aside class="rail">
@@ -527,6 +528,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=19"></script>
+<script type="module" src="app.js?v=20"></script>
 </body>
 </html>
