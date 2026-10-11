@@ -1,11 +1,11 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=20";
+import "./secure.js?v=21";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=20";
-import { initAI } from "./ai.js?v=20";
-import { initActivity } from "./activity.js?v=20";
-import { initRide } from "./ride.js?v=20";
-import { EX, createTracker } from "./reps.js?v=20";
+import { initFood } from "./food.js?v=21";
+import { initAI } from "./ai.js?v=21";
+import { initActivity } from "./activity.js?v=21";
+import { initRide } from "./ride.js?v=21";
+import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=21";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -20,31 +20,61 @@ const tracker=createTracker(exKey);
 let set=newSet(), sets=[], restTimer=null, lastRepAt=0;
 function newSet(){return {ex:exKey,reps:[],started:Date.now()};}
 
-/* ---------- UI: exercise picker ---------- */
+/* ---------- UI: exercise picker, how-to and circuits ---------- */
+let exCat=EX[exKey].cat, circuit=null;   // circuit: {c: circuit, i: step index}
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const isHold=k=>EX[k].kind==="hold";
 function renderEx(){
-  $("exList").innerHTML=Object.entries(EX).map(([k,e])=>`<button type="button" data-k="${k}" aria-pressed="${k===exKey}">${e.name}<small>${e.hint}</small></button>`).join("");
-  $("exList").querySelectorAll("button").forEach(b=>b.onclick=()=>{if(set.reps.length)finishSet();exKey=b.dataset.k;set=newSet();tracker.setExercise(exKey);renderEx();renderLive();});
+  $("exCats").innerHTML=CATS.map(([k,n])=>`<button type="button" role="tab" data-c="${k}" aria-selected="${k===exCat}">${n}</button>`).join("");
+  $("exCats").querySelectorAll("button").forEach(b=>b.onclick=()=>{exCat=b.dataset.c;renderEx();});
+  $("exList").innerHTML=Object.entries(EX).filter(([,e])=>e.cat===exCat).map(([k,e])=>`<button type="button" data-k="${k}" aria-pressed="${k===exKey}">${esc(e.name)}<small>${esc(e.view)}${e.kind==="hold"?" · hold":""}</small></button>`).join("");
+  $("exList").querySelectorAll("button").forEach(b=>b.onclick=()=>{ if(circuit){circuit=null;renderCircuit();$("circuitSel").value="";} selectExercise(b.dataset.k); });
+  const e=EX[exKey];
+  $("howTitle").textContent=`How to do it: ${e.name}`;
+  $("howText").textContent=e.how;
+  $("howView").textContent=`Camera: ${e.view} view, whole body in the picture.`+(e.kind==="hold"?" Counts the seconds you hold the pose.":e.kind==="alt"?" Each side counts as one.":"");
+  $("targetLbl").textContent=isHold(exKey)?"Seconds per set":"Reps per set";
 }
+function selectExercise(k,target){
+  if(set.reps.length) finishSet(true);
+  exKey=k; exCat=EX[k].cat; set=newSet(); tracker.setExercise(k);
+  $("targetReps").value=target??EX[k].target;
+  renderEx(); renderLive();
+}
+function renderCircuit(){
+  if(!circuit){ $("circuitOut").textContent=""; return; }
+  const st=circuit.c.steps;
+  $("circuitOut").textContent=`${circuit.c.name}: step ${circuit.i+1} of ${st.length}`+(circuit.i+1<st.length?` · next: ${EX[st[circuit.i+1][0]].name}`:" · last one");
+}
+$("circuitSel").innerHTML=`<option value="">None (pick exercises yourself)</option>`+CIRCUITS.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+$("circuitSel").onchange=()=>{
+  const c=CIRCUITS.find(x=>x.id===$("circuitSel").value);
+  if(!c){ circuit=null; renderCircuit(); return; }
+  circuit={c,i:0}; selectExercise(...c.steps[0]); renderCircuit();
+  speak(`${c.name}. First: ${EX[c.steps[0][0]].name}.`);
+};
 
 /* ---------- per-frame analysis ---------- */
 function analyze(r){
   const def=EX[exKey];
   if(r.state==="noperson"){ setPhase("No person"); hud([["No person detected","warn"],[fps+" fps",""]]); return; }
   if(r.state==="hold") return;   // brief dropout (a hand passing the body, motion blur): keep the rep alive
-  if(r.state==="lost"){ setPhase("Not in frame"); hud([[fps+" fps",""],[r.framing||("Turn so your "+(def.hint==="side view"?"side faces the camera":"whole body is in view")),"warn"]]); return; }
+  if(r.state==="lost"){ setPhase("Not in frame"); hud([[fps+" fps",""],[r.framing||(def.view==="side"?"Turn so your side faces the camera":"Make sure your whole body is in view"),"warn"]]); return; }
   if(r.state==="posture"){ $("romBar").style.width="0%"; setPhase("Waiting"); hud([[r.hint,"warn"],[fps+" fps",fps&&fps<10?"warn":""]].concat(r.framing?[[r.framing,"warn"]]:[])); return; }
   if(r.rep) countRep(r.rep);
   $("romBar").style.width=r.prog*100+"%";
-  setPhase(r.phase==="calibrating"?"Get set…":r.phase==="top"?"Ready":r.phase==="bottom"?"Return":"Moving");
-  hud([[r.label,""],[r.quality>0.75?"Tracking good":"Tracking weak",r.quality>0.75?"good":"warn"],[fps+" fps",fps&&fps<10?"warn":""]].concat(r.framing?[[r.framing,"warn"]]:[]));
+  setPhase(r.phase==="calibrating"?"Get set…":r.phase==="holding"?"Holding":def.kind==="hold"?"Get into the pose":r.phase==="top"?"Ready":r.phase==="bottom"?"Return":"Moving");
+  hud([[r.label,""]].concat(r.hint?[[r.hint,"warn"]]:[]).concat([[r.quality>0.75?"Tracking good":"Tracking weak",r.quality>0.75?"good":"warn"],[fps+" fps",fps&&fps<10?"warn":""]]).concat(r.framing?[[r.framing,"warn"]]:[]));
 }
 
 function countRep(res){
   set.reps.push(res); lastRepAt=Date.now();
   renderLive(res);
-  speak(String(set.reps.length));
-  const target=+$("targetReps").value||10;
-  if(set.reps.length>=target) finishSet();
+  const n=set.reps.length, target=+$("targetReps").value||10, def=EX[exKey];
+  // say every rep for strength moves; for fast cardio, alternating sides and holds, every 5th (or 10th)
+  const every=def.kind==="hold"?5:(def.cat==="cardio"||def.kind==="alt")?(target>=40?10:5):1;
+  if(n%every===0 || (def.kind==="hold" && target-n<=3 && target-n>0)) speak(def.kind==="hold"&&target-n<=3&&target-n>0?String(target-n):String(n));
+  if(n>=target) finishSet();
 }
 
 /* ---------- sets & rest ---------- */
@@ -52,13 +82,22 @@ function summarize(s){
   const n=s.reps.length, acc=n?Math.round(s.reps.reduce((t,r)=>t+r.score,0)/n):0;
   const counts={}; s.reps.forEach(r=>r.faults.forEach(f=>counts[f]=(counts[f]||0)+1));
   const top=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
-  return {ex:s.ex,name:EX[s.ex].name,reps:n,acc,top:top?`${top[0]} (${top[1]}×)`:"Clean set",at:s.started};
+  const unit=EX[s.ex].kind==="hold"?"sec":"reps";
+  return {ex:s.ex,name:EX[s.ex].name,reps:n,unit,acc,top:top?`${top[0]} (${top[1]}×)`:unit==="sec"?"Held in good form":"Clean set",at:s.started};
 }
-function finishSet(){
+function finishSet(switching){
   if(!set.reps.length) return;
   const sm=summarize(set); sets.push(sm);
-  speak(`Set done. ${sm.reps} reps, ${sm.acc} percent.`);
-  set=newSet(); tracker.setExercise(exKey); renderSets(); renderLive(); startRest();
+  set=newSet(); tracker.setExercise(exKey); renderSets(); renderLive();
+  if(switching) return;
+  if(circuit){   // circuits move on to the next exercise by themselves
+    circuit.i++;
+    if(circuit.i>=circuit.c.steps.length){ speak(`Circuit complete. Great work.`); circuit=null; $("circuitSel").value=""; renderCircuit(); startRest(); return; }
+    const [k,tg]=circuit.c.steps[circuit.i];
+    speak(`Done. Next: ${EX[k].name}.`); selectExercise(k,tg); renderCircuit(); startRest(); return;
+  }
+  speak(sm.unit==="sec"?`Done. ${sm.reps} seconds.`:`Set done. ${sm.reps} reps, ${sm.acc} percent.`);
+  startRest();
 }
 function startRest(){
   clearInterval(restTimer); let t=+$("restSec").value||0; if(!t) return;
@@ -74,22 +113,22 @@ function hud(items){$("hud").innerHTML=items.map(([t,c])=>`<span class="chip ${c
 function renderLive(last){
   const n=set.reps.length, target=+$("targetReps").value||10;
   $("setLabel").textContent=`${EX[exKey].name} · Set ${sets.filter(s=>s.ex===exKey).length+1}`;
-  $("repsOut").textContent=n;
+  $("repsOut").textContent=n; $("repsUnit").textContent=isHold(exKey)?"seconds":"reps";
   const acc=n?Math.round(set.reps.reduce((t,r)=>t+r.score,0)/n):null;
   $("accOut").textContent=acc==null?"–":acc+"%";
   $("lastOut").textContent=last?last.score:"–";
-  $("bigrep").innerHTML=`${n}<small>/${target}</small>`;
+  $("bigrep").innerHTML=isHold(exKey)?`${n}<small>/${target}s</small>`:`${n}<small>/${target}</small>`;
   const cues=last?last.faults:[];
   $("cues").innerHTML = last
     ? (cues.length?cues.map(c=>`<li><i class="dot ${last.score>=65?"warn":"bad"}"></i>${c}</li>`).join(""):`<li><i class="dot good"></i>Good rep: full range, ${last.dur}s</li>`)
-    : `<li><i class="dot"></i>Do a rep. Form feedback appears after each one.</li>`;
+    : `<li><i class="dot"></i>${isHold(exKey)?"Get into the pose. The timer runs while your form is right.":"Do a rep. Form feedback appears after each one."}</li>`;
   $("endSetBtn").disabled=!n;
 }
 function renderSets(){
   $("saveBtn").disabled=!sets.length;
   if(!sets.length){$("setTableWrap").innerHTML=`<p class="empty">Finished sets show up here with reps, accuracy and the most common fault.</p>`;return;}
   $("setTableWrap").innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Exercise</th><th class="num">Reps</th><th class="num">Acc.</th></tr></thead><tbody>${
-    sets.map((s,i)=>`<tr title="${s.top}"><td>${i+1}</td><td>${s.name}<div class="note">${s.top}</div></td><td class="num">${s.reps}</td><td class="num"><span class="pill ${cls(s.acc)}">${s.acc}%</span></td></tr>`).join("")
+    sets.map((s,i)=>`<tr title="${s.top}"><td>${i+1}</td><td>${s.name}<div class="note">${s.top}</div></td><td class="num">${s.reps}${s.unit==="sec"?" s":""}</td><td class="num"><span class="pill ${cls(s.acc)}">${s.acc}%</span></td></tr>`).join("")
   }</tbody></table></div>`;
 }
 
@@ -103,9 +142,9 @@ function renderHistory(){
   $("history").innerHTML=h.slice().reverse().map(w=>{
     const reps=w.sets.reduce((t,s)=>t+s.reps,0), acc=Math.round(w.sets.reduce((t,s)=>t+s.acc*s.reps,0)/(reps||1));
     return `<details><summary>${new Date(w.at).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})} · ${w.sets.length} sets · ${reps} reps · <span class="pill ${cls(acc)}">${acc}%</span></summary>
-    <table><tbody>${w.sets.map(s=>`<tr><td>${s.name}</td><td class="num">${s.reps}</td><td class="num">${s.acc}%</td></tr>`).join("")}</tbody></table></details>`;}).join("");
+    <table><tbody>${w.sets.map(s=>`<tr><td>${s.name}</td><td class="num">${s.reps}${s.unit==="sec"?" s":""}</td><td class="num">${s.acc}%</td></tr>`).join("")}</tbody></table></details>`;}).join("");
 }
-$("saveBtn").onclick=()=>{finishSet();if(!sets.length)return;const h=loadH();h.push({at:Date.now(),sets});saveH(h);sets=[];renderSets();renderHistory();$("status").textContent="Workout saved to this browser.";};
+$("saveBtn").onclick=()=>{finishSet(true);if(!sets.length)return;const h=loadH();h.push({at:Date.now(),sets});saveH(h);sets=[];renderSets();renderHistory();$("status").textContent="Workout saved to this browser.";};
 $("clearHist").onclick=()=>{if($("clearHist").dataset.arm){saveH([]);renderHistory();delete $("clearHist").dataset.arm;$("clearHist").textContent="Clear";}else{$("clearHist").dataset.arm=1;$("clearHist").textContent="Tap again to clear";setTimeout(()=>{delete $("clearHist").dataset.arm;$("clearHist").textContent="Clear";},3000);}};
 
 /* ---------- voice ---------- */
@@ -184,7 +223,7 @@ function showTab(name){
 }
 for(const t of TABS) $("tab"+t[0].toUpperCase()+t.slice(1)).onclick=()=>showTab(t);
 document.addEventListener("formiq:showtab",e=>showTab(e.detail));
-document.addEventListener("formiq:camera",e=>{ if(e.detail!=="workout" && e.detail!=="tab-workout" && running && stream){ stopSource(); $("camBtn").textContent="Start camera"; $("flipBtn").disabled=true; finishSet(); } });
+document.addEventListener("formiq:camera",e=>{ if(e.detail!=="workout" && e.detail!=="tab-workout" && running && stream){ stopSource(); $("camBtn").textContent="Start camera"; $("flipBtn").disabled=true; finishSet(true); } });
 
 /* ---------- sources ---------- */
 async function startCamera(){
@@ -211,9 +250,9 @@ async function startCamera(){
 }
 function stopSource(){running=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
 $("startBtn").onclick=startCamera;
-$("camBtn").onclick=()=>{if(running&&stream){stopSource();$("camBtn").textContent="Start camera";$("flipBtn").disabled=true;finishSet();}else startCamera();};
+$("camBtn").onclick=()=>{if(running&&stream){stopSource();$("camBtn").textContent="Start camera";$("flipBtn").disabled=true;finishSet(true);}else startCamera();};
 $("flipBtn").onclick=()=>{facing=facing==="user"?"environment":"user";startCamera();};
-$("endSetBtn").onclick=finishSet;
+$("endSetBtn").onclick=()=>finishSet();
 $("videoFile").onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
   await loadModel(); stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey);

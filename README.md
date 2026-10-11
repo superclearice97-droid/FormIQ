@@ -3,7 +3,14 @@
 Camera-based workout tracker that runs in the browser on phones and computers.
 
 - Tracks body pose on-device (MediaPipe Pose Landmarker); no video is uploaded
-- Counts reps for squats, push-ups, bicep curls and overhead presses
+- Counts reps, sides and hold time for 54 exercises, no equipment needed:
+  - Strength: squat, push-up, pull-up, bicep curl, lunge
+  - Arms: overhead press, front raise, behind-the-head press, bow pull, one-arm shoulder press, triceps kickback, overhead arm twist, overhead arm circles
+  - Core: overhead side bend, standing twist, lunge twist, pendulum bend, overhead bend, overhead hip shake, knee-to-chest, seated forward press, plank hip lift, leg raise, open & close leg raise, Russian twist, flutter kick, seated arm raise, leg scissors, crunch, sit-up
+  - Legs: wide squat, overhead squat, seated knee squeeze, hip lift (glute bridge), knee lift, side step, arm raise combo, knee lift & arm raise
+  - Cardio: jog in place, high knees, jump rope (with or without a rope), jumping jacks, mountain climber
+  - Yoga & holds (timed): plank, chair, tree, hinge, revolved crescent lunge, warrior I, II and III, seated side stretch, boat, standing forward fold
+- Ready-made circuits (starter full body, leg day, core, arms, cardio, yoga flow) that move from one exercise to the next for you
 - Scores each rep 0–100 for range of motion and form faults
 - Logs sets with a rest timer and voice rep counts; history is saved in the browser
 - Can analyze a recorded video as well as the live camera

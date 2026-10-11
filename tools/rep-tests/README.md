@@ -8,3 +8,8 @@ Checks `reps.js` against pose data recorded from real workout videos, with the t
 
 The videos aren't included (they belong to their authors). The ones used were public sample videos from
 open-source pose-estimation projects on GitHub. Only pose coordinates are used; no images are kept.
+
+`synth.mjs` builds synthetic movements (twists, side bends, knee lifts, jumps, holds...) from one real
+standing pose and checks each exercise counts them, and that standing still or walking counts nothing.
+`reference_count.py` is an independent offline count (peak finding on the whole recording) used to
+cross-check the app's live counter on longer video sets.
