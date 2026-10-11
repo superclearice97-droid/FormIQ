@@ -1,4 +1,4 @@
-run 7 · success · signed=1 · Sun Oct 11 16:04:17 UTC 2026
+run 8 · success · signed=1 · Sun Oct 11 17:28:36 UTC 2026
 == errors
 3:> Task :app:preBuild UP-TO-DATE
 4:> Task :app:preReleaseBuild UP-TO-DATE
@@ -32,8 +32,8 @@ run 7 · success · signed=1 · Sun Oct 11 16:04:17 UTC 2026
 32:> Task :app:mergeReleaseShaders
 33:> Task :app:compileReleaseShaders NO-SOURCE
 34:> Task :app:generateReleaseAssets UP-TO-DATE
-35:> Task :app:mergeReleaseAssets
-36:> Task :app:processReleaseResources
+35:> Task :app:processReleaseResources
+36:> Task :app:mergeReleaseAssets
 37:> Task :app:extractReleaseVersionControlInfo
 38:> Task :app:compressReleaseAssets
 39:> Task :app:collectReleaseDependencies
@@ -89,8 +89,8 @@ Daemon will be stopped at the end of the build
 > Task :app:mergeReleaseShaders
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
-> Task :app:mergeReleaseAssets
 > Task :app:processReleaseResources
+> Task :app:mergeReleaseAssets
 > Task :app:extractReleaseVersionControlInfo
 > Task :app:compressReleaseAssets
 > Task :app:collectReleaseDependencies
@@ -116,13 +116,13 @@ w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/su
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791734631015.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791739667433.json
 
-BUILD SUCCESSFUL in 25s
+BUILD SUCCESSFUL in 49s
 44 actionable tasks: 44 executed
 total 24476
-drwxr-xr-x 3 runner runner     4096 Oct 11 16:04 .
-drwxr-xr-x 3 runner runner     4096 Oct 11 16:04 ..
--rw-r--r-- 1 runner runner 25045032 Oct 11 16:04 app-release.apk
-drwxr-xr-x 4 runner runner     4096 Oct 11 16:04 baselineProfiles
--rw-r--r-- 1 runner runner      722 Oct 11 16:04 output-metadata.json
+drwxr-xr-x 3 runner runner     4096 Oct 11 17:28 .
+drwxr-xr-x 3 runner runner     4096 Oct 11 17:28 ..
+-rw-r--r-- 1 runner runner 25046224 Oct 11 17:28 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 11 17:28 baselineProfiles
+-rw-r--r-- 1 runner runner      722 Oct 11 17:28 output-metadata.json
