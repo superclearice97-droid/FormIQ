@@ -238,7 +238,6 @@ footer a{color:var(--muted)}
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tabWorkout" aria-selected="true" aria-controls="workoutView">Workout</button>
-    <button role="tab" id="tabStretch" aria-selected="false" aria-controls="stretchView">Stretch</button>
     <button role="tab" id="tabFood" aria-selected="false" aria-controls="foodView">Food</button>
     <button role="tab" id="tabActivity" aria-selected="false" aria-controls="activityView">Activity</button>
     <button role="tab" id="tabRide" aria-selected="false" aria-controls="rideView">Ride</button>
@@ -412,13 +411,6 @@ footer a{color:var(--muted)}
     </div>
   </div>
 
-  <div id="stretchView" role="tabpanel" aria-labelledby="tabStretch" hidden>
-    <div class="panel"><h2>Full-body stretching</h2><p class="muted">Dynamic movements before exercise; gentle static holds after exercise. Move without bouncing or pain.</p>
-      <div class="controls"><button id="stretchDynamic" class="primary" aria-pressed="true">Dynamic warm-up</button><button id="stretchStatic" aria-pressed="false">Static cooldown</button></div>
-      <div id="stretchList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px"></div>
-      <div class="panel" style="margin-top:14px"><div class="label" id="stretchCurrent">Select a stretch</div><div id="stretchClock" style="font-size:2rem;font-weight:800" aria-live="off">00:00</div><div class="controls"><button id="stretchStart" class="primary">Start / Resume</button><button id="stretchPause">Pause</button><button id="stretchReset">Reset</button></div></div>
-    </div>
-  </div>
   <div class="grid" id="workoutView" role="tabpanel" aria-labelledby="tabWorkout">
     <section style="display:grid;gap:12px;min-width:0">
       <div class="stage" id="stage">
@@ -447,7 +439,6 @@ footer a{color:var(--muted)}
             <option value="full" selected>Balanced (recommended)</option>
             <option value="heavy">Accurate</option>
           </select></label>
-        <label class="check" for="aggressiveTracking"><input type="checkbox" id="aggressiveTracking"> Aggressive tracking (heavy model, higher CPU/GPU and battery use)</label>
       </div>
       <p class="note" id="status">The pose model loads the first time you start. Everything runs on this device.</p>
       <p class="note">Rep counter v3 (11 Oct 2026): 54 exercises, holds and circuits. Each exercise only counts in its own starting position.</p>
@@ -545,6 +536,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=22"></script>
+<script type="module" src="app.js?v=21"></script>
 </body>
 </html>
