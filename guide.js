@@ -5,50 +5,51 @@
 
    Directions are given as you face the camera ("step to your left"), which is the same whether or not the
    preview is mirrored. On screen an arrow points the way your image needs to move. */
-import { VIS } from "./exercises.js?v=24";
+import { VIS } from "./exercises.js?v=26";
 
 const ok = (p) => p && (p.visibility ?? 1) > VIS;
-const NEEDS = {
-  full: [0, 11, 12, 23, 24, 25, 26, 27, 28],          // head to ankles
-  upper: [0, 11, 12, 13, 14, 15, 16],                 // head, shoulders, arms (pull-ups)
-  torso: [0, 11, 12, 13, 14, 23, 24],                 // head to hips (arm and seated moves: legs may be out of shot)
+/* what the camera has to see, per exercise level (see "frame" in exercises.js). Each group needs at least one of its landmarks,
+   so a side-on body (far shoulder hidden) still counts. */
+const GROUPS = {
+  full: [[0], [11, 12], [23, 24], [25, 26], [27, 28]],          // head to ankles
+  knees: [[0], [11, 12], [23, 24], [25, 26]],                    // head to knees
+  upper: [[0], [11, 12], [13, 14], [23, 24]],                    // head, shoulders, arms, hips
+  hang: [[0], [11, 12], [13, 14], [15, 16]],                     // head, shoulders and arms on the bar
 };
-/* moves done from the waist up: the camera only has to see head to hips */
-const UPPER_ONLY = new Set(["curl", "armcircles", "shoulderrolls", "armswings", "scapsqueeze", "crossbody", "tricepsstretch", "chest", "wrist", "fan", "trunkrot"]);
-const isTorso = (def) => def.cat === "arms" || def.posture === "seated" || UPPER_ONLY.has(def.key);
+const LABEL = { full: "your whole body", knees: "your head to your knees", upper: "your head to your hips", hang: "your head and arms" };
+const MIN_SIZE = { full: 0.5, knees: 0.38, upper: 0.28, hang: 0.3 };
+export const levelOf = (def) => def.frame || "full";
 
-/* def: the exercise (from exercises.js). asp: video width / height.
-   Returns { ok, step, msg, say, arrow: "left"|"right"|null, box: {x0,y0,x1,y1} of the body in 0..1 }. */
-export function evaluate(lm, def, asp = 16 / 9, postureOk = true, postureHint = "") {
+export function evaluate(lm, def, asp = 16 / 9, postureOk = true, postureHint = "", opts = {}) {
   if (!lm) return { ok: false, step: "find", msg: "Step into view of the camera", say: "Step into view of the camera" };
-  const torsoOnly = isTorso(def);
-  const need = def.posture === "hanging" ? NEEDS.upper : torsoOnly ? NEEDS.torso : NEEDS.full;
+  const level = levelOf(def), groups = GROUPS[level];
   const pts = lm.filter((p, i) => i <= 32 && ok(p));
-  if (pts.length < 6) return { ok: false, step: "find", msg: "Step into view of the camera", say: "Step into view of the camera" };
+  if (pts.length < 5) return { ok: false, step: "find", msg: "Step into view of the camera", say: "Step into view of the camera" };
 
-  // body box from everything visible (head to feet), with a little room for the top of the head
+  // body box from everything visible, with a little room for the top of the head
   const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
   const box = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys) - 0.06, y1: Math.max(...ys) };
   const lying = ["plank", "lying", "floor", "seated", "situp"].includes(def.posture);
+  const lowerNeeded = level === "full";
 
-  // 1. whole body in the picture
-  const missing = need.filter(i => !ok(lm[i]));
-  const feetGone = missing.some(i => i >= 25), headGone = missing.includes(0);
+  // 1. the body parts this exercise needs are in the picture
+  const missing = groups.filter(g => !g.some(i => ok(lm[i])));
+  const feetGone = missing.some(g => g[0] >= 25), headGone = missing.some(g => g[0] === 0);
   const atEdge = { top: box.y0 < 0.0, bottom: box.y1 > 0.985, left: box.x0 < 0.015, right: box.x1 > 0.985 };
-  if (missing.length || atEdge.top || (atEdge.bottom && !torsoOnly) || ((atEdge.left || atEdge.right) && lying)) {
-    const what = torsoOnly ? (headGone ? "your head" : "your body") : feetGone && !headGone ? "your feet" : headGone && !feetGone ? "your head" : "your whole body";
-    const m = `Step back so ${what} ${what === "your feet" ? "are" : "is"} in the picture`;
+  if (missing.length || atEdge.top || (atEdge.bottom && lowerNeeded) || ((atEdge.left || atEdge.right) && lying)) {
+    const what = level !== "full" ? LABEL[level] : feetGone && !headGone ? "your feet" : headGone && !feetGone ? "your head" : LABEL.full;
+    const m = `Step back so ${what} ${/^your (feet|head and|whole)/.test(what) && what !== "your whole body" && what !== "your head and arms" ? "are" : "is"} in the picture`;
     return { ok: false, step: "fit", msg: m, say: m, box };
   }
 
-  // 2. distance: big enough to track well, but with some room around you
-  const size = lying ? Math.max(box.x1 - box.x0, (box.y1 - box.y0) / asp * asp) : box.y1 - box.y0;
-  if (size < (lying ? 0.45 : torsoOnly ? 0.28 : 0.5)) return { ok: false, step: "near", msg: "Come a little closer", say: "Come a little closer", box };
-  if (!lying && size > 0.97) return { ok: false, step: "far", msg: "Take a step back", say: "Take a step back", box };
+  // 2. distance: big enough to track well, but with some room around you (auto-frame zooms in for you)
+  const size = lying ? Math.max(box.x1 - box.x0, (box.y1 - box.y0)) : box.y1 - box.y0;
+  if (!opts.auto && size < (lying ? 0.45 : MIN_SIZE[level])) return { ok: false, step: "near", msg: "Come a little closer", say: "Come a little closer", box };
+  if (!lying && level !== "hang" && size > 0.97) return { ok: false, step: "far", msg: "Take a step back", say: "Take a step back", box };
 
   // 3. centred left to right (people side-on to the camera often stand off to one side)
   const cx = (box.x0 + box.x1) / 2;
-  if (!lying && (cx < 0.3 || cx > 0.7)) {
+  if (!opts.auto && !lying && (cx < 0.3 || cx > 0.7)) {
     // raw image: small x = the camera's left = your right when you face it, so you step to your left
     const yourWay = cx < 0.5 ? "left" : "right";
     const m = def.view === "side" ? "Move toward the middle of the picture" : `Take a step to your ${yourWay}`;

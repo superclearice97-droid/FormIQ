@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=24";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=26";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */
@@ -292,12 +292,14 @@ export function createTracker(exKey = "squat") {
 }
 
 export function framing(lm, def) {
-  const ys = [0, 11, 12, 23, 24, 27, 28].map(i => lm[i]).filter(p => (p.visibility ?? 0) > VIS).map(p => p.y);
+  const level = def?.frame || "full";
+  const ids = level === "full" ? [0, 11, 12, 23, 24, 27, 28] : level === "knees" ? [0, 11, 12, 23, 24, 25, 26] : [0, 11, 12, 23, 24];
+  const ys = ids.map(i => lm[i]).filter(p => (p.visibility ?? 0) > VIS).map(p => p.y);
   if (ys.length < 3) return null;
   const top = Math.min(...ys), bot = Math.max(...ys);
   const standing = !def || def.posture === "upright";
-  if (standing && (def?.anchor === "feet" || def?.cat === "cardio") && !seen(lm, [27]) && !seen(lm, [28])) return "Step back so your feet are in the picture";
-  if (top < 0.02 || bot > 0.98) return "Step back so your whole body fits";
-  if (bot - top < 0.35 && standing) return "Move closer to the camera";
+  if (level === "full" && standing && (def?.anchor === "feet" || def?.cat === "cardio") && !seen(lm, [27]) && !seen(lm, [28])) return "Step back so your feet are in the picture";
+  if (top < 0.02 || (level === "full" && bot > 0.98)) return level === "full" ? "Step back so your whole body fits" : "Step back so your head and shoulders fit";
+  if (bot - top < (level === "full" ? 0.35 : 0.18) && standing) return "Move closer to the camera";
   return null;
 }

@@ -1,14 +1,15 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=24";
+import "./secure.js?v=26";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=24";
-import { initAI } from "./ai.js?v=24";
-import { initActivity } from "./activity.js?v=24";
-import { initRide } from "./ride.js?v=24";
-import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=24";
-import { evaluate, createGuide } from "./guide.js?v=24";
-import { COACH } from "./coach-data.js?v=24";
-import { createBuddy } from "./buddy.js?v=25";
+import { initFood } from "./food.js?v=26";
+import { initAI } from "./ai.js?v=26";
+import { initActivity } from "./activity.js?v=26";
+import { initRide } from "./ride.js?v=26";
+import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=26";
+import { evaluate, createGuide } from "./guide.js?v=26";
+import { COACH } from "./coach-data.js?v=26";
+import { createBuddy, setLook, getLook } from "./buddy.js?v=26";
+import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, TOPS, BOTTOMS, DEFAULT_LOOK, randomLook, saveLook, loadLook } from "./looks.js?v=26";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -23,6 +24,70 @@ let exKey="squat";
 const tracker=createTracker(exKey);
 let set=newSet(), sets=[], restTimer=null, lastRepAt=0;
 function newSet(){return {ex:exKey,reps:[],started:Date.now()};}
+
+/* ---------- customize the coach ---------- */
+function renderLookUI(){
+  const L=getLook(), box=$("lookUI");
+  const sw=(label,list,key)=>`<div class="lk"><b>${label}</b><div class="sw" role="group" aria-label="${label}">${list.map((c,i)=>`<button type="button" class="swb" data-k="${key}" data-v="${i}" aria-label="${esc(c.name)}" title="${esc(c.name)}" aria-pressed="${L[key]===i}" style="background:${c.hex}"></button>`).join("")}</div></div>`;
+  const sel=(label,key,opts)=>`<label class="lk"><b>${label}</b><select data-s="${key}">${opts.map(([v,n])=>`<option value="${v}"${L[key]===v?" selected":""}>${esc(n)}</option>`).join("")}</select></label>`;
+  const seg=(label,key,obj)=>`<div class="lk"><b>${label}</b><div class="row2" role="group" aria-label="${label}">${Object.entries(obj).map(([v,o])=>`<button type="button" data-g="${key}" data-v="${v}" aria-pressed="${L[key]===v}">${esc(o.name||o)}</button>`).join("")}</div></div>`;
+  const ck=(label,key)=>`<label class="ck"><input type="checkbox" data-c="${key}"${L[key]?" checked":""}> ${label}</label>`;
+  box.innerHTML=`${sel("Hairstyle","hair",HAIR_STYLES.map(h=>[h.id,h.name]))}${sw("Hair colour",HAIR_COLORS,"hairColor")}${sw("Skin tone",SKIN,"skin")}${sw("Eyes",EYES,"eyes")}
+    ${seg("Proportions","prop",PROPORTIONS)}${seg("Build","build",BUILDS)}
+    ${sel("Top","top",Object.entries(TOPS))}${sw("Top colour",TOP_COLORS,"topColor")}
+    ${sel("Bottoms","bottom",Object.entries(BOTTOMS))}${sw("Bottoms colour",BOTTOM_COLORS,"bottomColor")}${sw("Shoes",SHOE_COLORS,"shoes")}
+    <div class="lk"><b>Extras</b>${ck("Headband","band")}${L.band?sw("Headband colour",ACCENT_COLORS,"bandColor"):""}${ck("Wristbands","wrist")}${L.wrist?sw("Wristband colour",ACCENT_COLORS,"wristColor"):""}${ck("Fingerless gloves","gloves")}${ck("Glasses","glasses")}</div>
+    <div class="row2"><button type="button" id="lookRand">Surprise me</button><button type="button" id="lookReset">Reset</button></div>`;
+}
+function applyLook(l){ setLook(l); saveLook(getLook()); renderLookUI(); }
+$("lookUI").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.id==="lookRand") return applyLook(randomLook());
+  if(b.id==="lookReset") return applyLook({...DEFAULT_LOOK});
+  if(b.dataset.k) return applyLook({...getLook(),[b.dataset.k]:+b.dataset.v});
+  if(b.dataset.g) return applyLook({...getLook(),[b.dataset.g]:b.dataset.v});
+});
+$("lookUI").addEventListener("change",e=>{
+  const t=e.target; if(t.dataset.s) applyLook({...getLook(),[t.dataset.s]:t.value}); else if(t.dataset.c) applyLook({...getLook(),[t.dataset.c]:t.checked});
+});
+
+/* ---------- auto-frame: digital pan and zoom that follows you so you stay centred and a good size ---------- */
+let autoFrame=(()=>{try{return localStorage.getItem("formiq.autoframe")!=="off"}catch{return true}})();
+const camView={z:1,x:0,y:0}; let camT=0, camLostAt=0;
+function paintAutoBtn(){ $("autoBtn").textContent="Auto-frame: "+(autoFrame?"on":"off"); $("autoBtn").setAttribute("aria-pressed",autoFrame); }
+function applyCam(){ $("cam").style.transform=camView.z===1&&!camView.x&&!camView.y?"":`scale(${camView.z.toFixed(4)}) translate(${(-camView.x).toFixed(1)}px,${(-camView.y).toFixed(1)}px)`; }
+function resetCam(){ camView.z=1; camView.x=0; camView.y=0; camT=0; applyCam(); }
+$("autoBtn").onclick=()=>{ autoFrame=!autoFrame; try{localStorage.setItem("formiq.autoframe",autoFrame?"on":"off")}catch{} paintAutoBtn(); if(!autoFrame) resetCam(); };
+function stageRect(){
+  const W=$("stage").clientWidth, H=$("stage").clientHeight, a=(video.videoWidth||4)/(video.videoHeight||3);
+  let dw=W, dh=W/a; if(dh>H){ dh=H; dw=H*a; }
+  return {W,H,dw,dh,ox:(W-dw)/2,oy:(H-dh)/2};
+}
+const clampWin=(pos,size,lo,span)=>size>=span?lo+(span-size)/2:Math.max(lo,Math.min(lo+span-size,pos));
+function autoFrameStep(r,t){
+  if(!autoFrame||!video.srcObject){ if(camView.z!==1) resetCam(); return; }
+  const S=stageRect(), mirror=video.classList.contains("mirror"), lm=r.img;
+  let tz=camView.z, tx=camView.x, ty=camView.y;
+  const pts=lm?lm.filter((p,i)=>i<=32&&(p.visibility??1)>VIS):[];
+  if(pts.length>=5){
+    camLostAt=0;
+    const X=pts.map(p=>S.ox+(mirror?1-p.x:p.x)*S.dw), Y=pts.map(p=>S.oy+p.y*S.dh);
+    const x0=Math.min(...X), x1=Math.max(...X), y0=Math.min(...Y)-0.07*S.dh, y1=Math.max(...Y)+0.03*S.dh;
+    const bw=Math.max(40,x1-x0), bh=Math.max(60,y1-y0), cx=(x0+x1)/2, cy=(y0+y1)/2;
+    const nz=Math.max(1,Math.min(2.2,0.8*S.dh/bh,0.85*S.dw/bw));
+    const w=S.W/nz, h=S.H/nz;
+    const nx=clampWin(cx-w/2,w,S.ox,S.dw), ny=clampWin(cy-h/2,h,S.oy,S.dh);
+    // ignore small changes so the picture doesn't wobble
+    if(Math.abs(nz-camView.z)>0.06*camView.z || Math.abs(nx-camView.x)>0.05*w || Math.abs(ny-camView.y)>0.05*h){ tz=nz; tx=nx; ty=ny; }
+  } else {
+    if(!camLostAt) camLostAt=t;
+    if(t-camLostAt>3000){ tz=1; tx=0; ty=0; }
+  }
+  const dt=camT?Math.min(200,t-camT):16; camT=t;
+  const k=1-Math.exp(-dt/550);
+  camView.z+=(tz-camView.z)*k; camView.x+=(tx-camView.x)*k; camView.y+=(ty-camView.y)*k;
+  applyCam();
+}
 
 /* ---------- setup guide: walks you into the picture, counts 3-2-1, then reps start counting ---------- */
 const guide=createGuide();
@@ -54,7 +119,8 @@ function showGuide(g){
   const b=g.box, bx=$("gBox");
   if(b){
     const x0=mirror?1-b.x1:b.x0, x1=mirror?1-b.x0:b.x1, y0=Math.max(0,b.y0), y1=Math.min(1,b.y1);
-    bx.style.display="block"; bx.style.left=(ox+x0*dw)+"px"; bx.style.top=(oy+y0*dh)+"px"; bx.style.width=((x1-x0)*dw)+"px"; bx.style.height=((y1-y0)*dh)+"px";
+    const z=autoFrame&&video.srcObject?camView.z:1, vx=z>1?camView.x:0, vy=z>1?camView.y:0;
+    bx.style.display="block"; bx.style.left=((ox+x0*dw-vx)*z)+"px"; bx.style.top=((oy+y0*dh-vy)*z)+"px"; bx.style.width=((x1-x0)*dw*z)+"px"; bx.style.height=((y1-y0)*dh*z)+"px";
   } else bx.style.display="none";
   bx.classList.toggle("ok",g.phase==="count"||g.phase==="go");
   const ar=$("gArrow");
@@ -68,7 +134,7 @@ function showGuide(g){
 function guideStep(r,t){
   if(!guideOn||!video.srcObject){ if(!$("guide").hidden) showGuide(null); return true; }
   if(!$("restPanel").hidden){ guide.reset(); showGuide(null); return false; }
-  const e=evaluate(r.img||null, EX[exKey], (video.videoWidth||4)/(video.videoHeight||3), r.postureOk!==false, r.postureHint);
+  const e=evaluate(r.img||null, EX[exKey], (video.videoWidth||4)/(video.videoHeight||3), r.postureOk!==false, r.postureHint, {auto:autoFrame});
   const g=guide.step(e,t);
   if(g.say) speak(g.say==="Go!"&&COACH[exKey]?"Go. "+COACH[exKey].cue:g.say);
   if(g.phase==="go"){ tracker.rearm(); goUntil=t+900; showGuide(g); showCoachLine(0); return false; }
@@ -276,7 +342,7 @@ function loop(){
     poseSamples++;
     fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
     const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?t:video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
-    draw(r.img||null);
+    draw(r.img||null); autoFrameStep(r,t);
     if(guideStep(r,t)) analyze(r);
     else { setPhase(guide.started?"Go":"Getting ready"); hud([[fps+" fps",fps&&fps<10?"warn":""]]); $("romBar").style.width="0%"; }
   }
@@ -335,7 +401,7 @@ async function startCamera(){
     $("overlay").hidden=false; $("status").textContent="";
   }finally{$("startBtn").disabled=false;$("camBtn").disabled=false;}
 }
-function stopSource(){running=false;panelBuddy.play();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
+function stopSource(){running=false;resetCam();panelBuddy.play();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
 $("startBtn").onclick=startCamera;
 $("camBtn").onclick=()=>{if(running&&stream){stopSource();$("camBtn").textContent="Start camera";$("flipBtn").disabled=true;finishSet(true);}else startCamera();};
 $("flipBtn").onclick=()=>{facing=facing==="user"?"environment":"user";startCamera();};
@@ -362,7 +428,8 @@ async function wake(){try{await navigator.wakeLock?.request("screen");}catch{}}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&running)wake();});
 video.addEventListener("playing",wake);
 
-paintGuideBtn(); renderEx(); renderLive(); renderSets(); renderHistory();
+setLook(loadLook());   // read after the encrypted store is ready
+paintGuideBtn(); paintAutoBtn(); renderLookUI(); renderEx(); renderLive(); renderSets(); renderHistory();
 initFood(); initAI(); initActivity(); initRide();
 if(TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1));
 addEventListener("hashchange",()=>{const h=location.hash.slice(1); if(TABS.includes(h)) showTab(h);});

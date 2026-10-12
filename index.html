@@ -7,7 +7,7 @@
 <title>FormIQ</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com https://api.github.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<script src="native.js?v=24"></script>
+<script src="native.js?v=26"></script>
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
 @font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
@@ -42,7 +42,7 @@ h1 span{color:var(--accent)}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
 @media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
 .stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3;max-width:100%}
-.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.cam{position:absolute;inset:0;transform-origin:0 0;will-change:transform}.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .guide{position:absolute;inset:0;pointer-events:none}
 .guide .gbox{position:absolute;border:3px dashed rgba(255,255,255,.75);border-radius:14px;transition:all .15s}
 .guide .gbox.ok{border:3px solid #3ccf8e;box-shadow:0 0 0 9999px rgba(0,0,0,.0)}
@@ -80,7 +80,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .cats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .cats button{padding:6px 10px;font-size:13px;border-radius:999px}
 .cats button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
-.demo{width:100%;max-width:260px;margin:8px auto;aspect-ratio:220/170;background:linear-gradient(180deg,#eefaf4,#fff);border-radius:14px;border:2px solid rgba(60,199,143,.45)}.demoCard{position:absolute;left:10px;top:44px;width:min(38%,170px);background:rgba(255,255,255,.94);border:2px solid #3cc78f;border-radius:16px;padding:4px 4px 6px;text-align:center;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.35);animation:pop .25s ease-out}.demoCard .demo{margin:0;border:0;max-width:none;background:transparent}.demoCard span{display:block;font:700 12px var(--display);color:#1a2b22;letter-spacing:.03em}@keyframes pop{from{transform:scale(.7);opacity:0}}@media (prefers-reduced-motion:reduce){.demoCard{animation:none}}.coach h4{margin:.9em 0 .25em;font:700 13px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5b6b62)}.coach ol,.coach ul{margin:.2em 0 .2em 1.2em;padding:0}.coach li{margin:.2em 0}.coach .musc{display:flex;flex-wrap:wrap;gap:6px}.coach .musc span{background:rgba(31,138,91,.14);border-radius:999px;padding:3px 10px;font-size:12.5px}.coachline{position:absolute;left:10px;right:110px;top:46px;background:rgba(8,12,10,.78);color:#fff;border-radius:10px;padding:6px 12px;font-size:14px;pointer-events:none}.how{margin-top:10px;font-size:14px}.how summary{cursor:pointer;font-weight:600}.how p{margin:.4em 0}
+.demo{width:100%;max-width:260px;margin:8px auto;aspect-ratio:220/170;background:linear-gradient(180deg,#eefaf4,#fff);border-radius:14px;border:2px solid rgba(60,199,143,.45)}.demoCard{position:absolute;left:10px;top:44px;width:min(38%,170px);background:rgba(255,255,255,.94);border:2px solid #3cc78f;border-radius:16px;padding:4px 4px 6px;text-align:center;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.35);animation:pop .25s ease-out}.demoCard .demo{margin:0;border:0;max-width:none;background:transparent}.demoCard span{display:block;font:700 12px var(--display);color:#1a2b22;letter-spacing:.03em}@keyframes pop{from{transform:scale(.7);opacity:0}}@media (prefers-reduced-motion:reduce){.demoCard{animation:none}}.look .lk{display:grid;gap:5px;margin:10px 0}.look .lk b{font:700 12px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5b6b62)}.look .sw{display:flex;flex-wrap:wrap;gap:7px}.look .swb{width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #9aa5a0;padding:0;cursor:pointer;min-height:0}.look .swb[aria-pressed="true"]{box-shadow:0 0 0 3px var(--accent,#1f8a5b)}.look .row2{display:flex;flex-wrap:wrap;gap:8px}.look .row2 button{padding:6px 12px;border-radius:999px;font-size:13px}.look .row2 button[aria-pressed="true"]{background:var(--accent,#1f8a5b);color:#fff;border-color:var(--accent,#1f8a5b)}.look label.ck{display:flex;gap:8px;align-items:center;font-size:14px}.coach h4{margin:.9em 0 .25em;font:700 13px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5b6b62)}.coach ol,.coach ul{margin:.2em 0 .2em 1.2em;padding:0}.coach li{margin:.2em 0}.coach .musc{display:flex;flex-wrap:wrap;gap:6px}.coach .musc span{background:rgba(31,138,91,.14);border-radius:999px;padding:3px 10px;font-size:12.5px}.coachline{position:absolute;left:10px;right:110px;top:46px;background:rgba(8,12,10,.78);color:#fff;border-radius:10px;padding:6px 12px;font-size:14px;pointer-events:none}.how{margin-top:10px;font-size:14px}.how summary{cursor:pointer;font-weight:600}.how p{margin:.4em 0}
 .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .field{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .field input,.field select{width:64px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
@@ -425,8 +425,10 @@ footer a{color:var(--muted)}
   <div class="grid" id="workoutView" role="tabpanel" aria-labelledby="tabWorkout">
     <section style="display:grid;gap:12px;min-width:0">
       <div class="stage" id="stage">
+        <div class="cam" id="cam">
         <video id="video" playsinline muted></video>
         <canvas id="canvas"></canvas>
+        </div>
         <div class="bigrep" id="bigrep" hidden>0<small>/10</small></div>
         <div class="demoCard" id="demoCard" hidden><div class="demo" id="popDemo"></div><span id="popName"></span></div>
         <div class="coachline" id="coachLine" hidden></div>
@@ -455,6 +457,7 @@ footer a{color:var(--muted)}
         <button id="voiceBtn" aria-pressed="true">Voice: on</button>
         <button id="guideBtn" aria-pressed="true">Setup guide: on</button>
         <button id="demoBtn" aria-pressed="false">Show demo</button>
+        <button id="autoBtn" aria-pressed="true">Auto-frame: on</button>
         <label class="field" for="quality">Tracking
           <select id="quality">
             <option value="lite">Fast</option>
@@ -474,6 +477,7 @@ footer a{color:var(--muted)}
         <div class="ex" id="exList"></div>
         <details class="how" open><summary id="howTitle">How to do it</summary><p id="howText"></p><p class="note" id="howView"></p><div class="demo" id="howDemo" aria-hidden="false"></div>
         <div id="coachBox"></div></details>
+        <details class="how" id="lookBox"><summary>Customize your coach</summary><div id="lookUI" class="look"></div></details>
         <label class="field" for="circuitSel" style="margin-top:10px">Circuit <select id="circuitSel"></select></label>
         <p class="note" id="circuitOut" role="status"></p>
         <div class="row" style="margin-top:12px">
@@ -560,6 +564,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=24"></script>
+<script type="module" src="app.js?v=26"></script>
 </body>
 </html>

@@ -451,7 +451,11 @@ export const EX = {
 };
 
 /* Ready-made circuits: each step is [exercise, target]. */
-for (const k in EX) EX[k].key = k;
+/* How much of the body the camera must see: "upper" = head to hips (arms, twists, seated and floor core work),
+   "knees" = head to knees, otherwise the whole body. */
+const FRAME_UPPER = "curl press frontraise behindhead bowpull shoulderpress kickback armtwist armspin sidebend standtwist pendulum overheadbend hipshake seatedpress seatedraise armraisecombo russiantwist crunch situp armcircles shoulderrolls armswings scapsqueeze trunkrot crossbody tricepsstretch chest wrist fan catcow threadneedle lungetwist".split(" ");
+const FRAME_KNEES = "kneesqueeze bridge kneetochest kneelift kneeliftcombo".split(" ");
+for (const k in EX) { EX[k].key = k; EX[k].frame = k === "pullup" ? "hang" : FRAME_UPPER.includes(k) ? "upper" : FRAME_KNEES.includes(k) ? "knees" : "full"; }
 
 export const CIRCUITS = [
   { id: "starter", name: "Starter full body (≈10 min)", steps: [["jog", 60], ["squat", 10], ["pushup", 8], ["standtwist", 20], ["bridge", 12], ["plank", 20], ["forwardfold", 20]] },
