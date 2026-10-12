@@ -1,4 +1,4 @@
-run 10 · success · signed=1 · Mon Oct 12 13:03:08 UTC 2026
+run 11 · success · signed=1 · Mon Oct 12 13:15:00 UTC 2026
 == errors
 3:> Task :app:preBuild UP-TO-DATE
 4:> Task :app:preReleaseBuild UP-TO-DATE
@@ -25,32 +25,32 @@ run 10 · success · signed=1 · Mon Oct 12 13:03:08 UTC 2026
 25:> Task :app:processReleaseMainManifest
 26:> Task :app:processReleaseManifest
 27:> Task :app:javaPreCompileRelease
-28:> Task :app:processReleaseManifestForPackage
-29:> Task :app:desugarReleaseFileDependencies
-30:> Task :app:mergeReleaseStartupProfile
+28:> Task :app:desugarReleaseFileDependencies
+29:> Task :app:mergeReleaseStartupProfile
+30:> Task :app:processReleaseManifestForPackage
 31:> Task :app:mergeReleaseArtProfile
 32:> Task :app:mergeReleaseShaders
 33:> Task :app:compileReleaseShaders NO-SOURCE
 34:> Task :app:generateReleaseAssets UP-TO-DATE
-35:> Task :app:processReleaseResources
-36:> Task :app:mergeReleaseAssets
-37:> Task :app:extractReleaseVersionControlInfo
-38:> Task :app:mergeExtDexRelease
-39:> Task :app:compressReleaseAssets
-40:> Task :app:collectReleaseDependencies
-41:> Task :app:optimizeReleaseResources
-42:> Task :app:sdkReleaseDependencyData
-43:> Task :app:validateSigningRelease
-44:> Task :app:writeReleaseAppMetadata
-45:> Task :app:writeReleaseSigningConfigVersions
+35:> Task :app:mergeReleaseAssets
+36:> Task :app:extractReleaseVersionControlInfo
+37:> Task :app:collectReleaseDependencies
+38:> Task :app:sdkReleaseDependencyData
+39:> Task :app:validateSigningRelease
+40:> Task :app:writeReleaseAppMetadata
+41:> Task :app:writeReleaseSigningConfigVersions
+42:> Task :app:processReleaseResources
+43:> Task :app:compressReleaseAssets
+44:> Task :app:optimizeReleaseResources
+45:> Task :app:mergeExtDexRelease
 47:> Task :app:compileReleaseKotlin
 52:> Task :app:compileReleaseJavaWithJavac
 53:> Task :app:dexBuilderRelease
 54:> Task :app:mergeReleaseGlobalSynthetics
 55:> Task :app:processReleaseJavaRes
-56:> Task :app:mergeReleaseJavaResource
-57:> Task :app:mergeDexRelease
-58:> Task :app:compileReleaseArtProfile
+56:> Task :app:mergeDexRelease
+57:> Task :app:compileReleaseArtProfile
+58:> Task :app:mergeReleaseJavaResource
 59:> Task :app:packageRelease
 60:> Task :app:createReleaseApkListingFileRedirect
 61:> Task :app:assembleRelease
@@ -82,24 +82,24 @@ Daemon will be stopped at the end of the build
 > Task :app:processReleaseMainManifest
 > Task :app:processReleaseManifest
 > Task :app:javaPreCompileRelease
-> Task :app:processReleaseManifestForPackage
 > Task :app:desugarReleaseFileDependencies
 > Task :app:mergeReleaseStartupProfile
+> Task :app:processReleaseManifestForPackage
 > Task :app:mergeReleaseArtProfile
 > Task :app:mergeReleaseShaders
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
-> Task :app:processReleaseResources
 > Task :app:mergeReleaseAssets
 > Task :app:extractReleaseVersionControlInfo
-> Task :app:mergeExtDexRelease
-> Task :app:compressReleaseAssets
 > Task :app:collectReleaseDependencies
-> Task :app:optimizeReleaseResources
 > Task :app:sdkReleaseDependencyData
 > Task :app:validateSigningRelease
 > Task :app:writeReleaseAppMetadata
 > Task :app:writeReleaseSigningConfigVersions
+> Task :app:processReleaseResources
+> Task :app:compressReleaseAssets
+> Task :app:optimizeReleaseResources
+> Task :app:mergeExtDexRelease
 
 > Task :app:compileReleaseKotlin
 w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/superclearice97/formiq/Ble.kt:173:22 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
@@ -110,19 +110,19 @@ w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/su
 > Task :app:dexBuilderRelease
 > Task :app:mergeReleaseGlobalSynthetics
 > Task :app:processReleaseJavaRes
-> Task :app:mergeReleaseJavaResource
 > Task :app:mergeDexRelease
 > Task :app:compileReleaseArtProfile
+> Task :app:mergeReleaseJavaResource
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791810130675.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_3-1791810867524.json
 
-BUILD SUCCESSFUL in 56s
+BUILD SUCCESSFUL in 30s
 44 actionable tasks: 44 executed
 total 52356
-drwxr-xr-x 3 runner runner     4096 Oct 12 13:03 .
-drwxr-xr-x 3 runner runner     4096 Oct 12 13:03 ..
--rw-r--r-- 1 runner runner 53595002 Oct 12 13:03 app-release.apk
-drwxr-xr-x 4 runner runner     4096 Oct 12 13:03 baselineProfiles
--rw-r--r-- 1 runner runner      724 Oct 12 13:03 output-metadata.json
+drwxr-xr-x 3 runner runner     4096 Oct 12 13:14 .
+drwxr-xr-x 3 runner runner     4096 Oct 12 13:14 ..
+-rw-r--r-- 1 runner runner 53594502 Oct 12 13:14 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 12 13:14 baselineProfiles
+-rw-r--r-- 1 runner runner      724 Oct 12 13:14 output-metadata.json
