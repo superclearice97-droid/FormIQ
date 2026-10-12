@@ -3,6 +3,7 @@
 Camera-based workout tracker that runs in the browser on phones and computers.
 
 - Tracks body pose on-device (MediaPipe Pose Landmarker); no video is uploaded
+- An original chibi, anime-style coach character demonstrates every exercise in an animation, and pops up on the camera view whenever you need to get back into position (there is also a Show demo button)
 - Built-in coaching for every exercise: muscles worked, step-by-step instructions, common mistakes, breathing, easier and harder versions, plus live on-screen coaching and a spoken cue during each set (all offline)
 - Setup guide: tells you how to get into the picture (step back, move left or right, turn, starting position), counts 3-2-1, and only then starts counting. It pauses if you leave the frame and can be turned off.
 - Counts reps, sides and hold time for 77 exercises, no equipment needed:

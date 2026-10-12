@@ -80,7 +80,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .cats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .cats button{padding:6px 10px;font-size:13px;border-radius:999px}
 .cats button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
-.coach h4{margin:.9em 0 .25em;font:700 13px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5b6b62)}.coach ol,.coach ul{margin:.2em 0 .2em 1.2em;padding:0}.coach li{margin:.2em 0}.coach .musc{display:flex;flex-wrap:wrap;gap:6px}.coach .musc span{background:rgba(31,138,91,.14);border-radius:999px;padding:3px 10px;font-size:12.5px}.coachline{position:absolute;left:10px;right:110px;top:46px;background:rgba(8,12,10,.78);color:#fff;border-radius:10px;padding:6px 12px;font-size:14px;pointer-events:none}.how{margin-top:10px;font-size:14px}.how summary{cursor:pointer;font-weight:600}.how p{margin:.4em 0}
+.demo{width:100%;max-width:260px;margin:8px auto;aspect-ratio:220/170;background:linear-gradient(180deg,#eefaf4,#fff);border-radius:14px;border:2px solid rgba(60,199,143,.45)}.demoCard{position:absolute;left:10px;top:44px;width:min(38%,170px);background:rgba(255,255,255,.94);border:2px solid #3cc78f;border-radius:16px;padding:4px 4px 6px;text-align:center;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.35);animation:pop .25s ease-out}.demoCard .demo{margin:0;border:0;max-width:none;background:transparent}.demoCard span{display:block;font:700 12px var(--display);color:#1a2b22;letter-spacing:.03em}@keyframes pop{from{transform:scale(.7);opacity:0}}@media (prefers-reduced-motion:reduce){.demoCard{animation:none}}.coach h4{margin:.9em 0 .25em;font:700 13px var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5b6b62)}.coach ol,.coach ul{margin:.2em 0 .2em 1.2em;padding:0}.coach li{margin:.2em 0}.coach .musc{display:flex;flex-wrap:wrap;gap:6px}.coach .musc span{background:rgba(31,138,91,.14);border-radius:999px;padding:3px 10px;font-size:12.5px}.coachline{position:absolute;left:10px;right:110px;top:46px;background:rgba(8,12,10,.78);color:#fff;border-radius:10px;padding:6px 12px;font-size:14px;pointer-events:none}.how{margin-top:10px;font-size:14px}.how summary{cursor:pointer;font-weight:600}.how p{margin:.4em 0}
 .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .field{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .field input,.field select{width:64px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
@@ -428,6 +428,7 @@ footer a{color:var(--muted)}
         <video id="video" playsinline muted></video>
         <canvas id="canvas"></canvas>
         <div class="bigrep" id="bigrep" hidden>0<small>/10</small></div>
+        <div class="demoCard" id="demoCard" hidden><div class="demo" id="popDemo"></div><span id="popName"></span></div>
         <div class="coachline" id="coachLine" hidden></div>
         <div class="hud" id="hud"></div>
         <div class="guide" id="guide" hidden aria-live="polite">
@@ -453,6 +454,7 @@ footer a{color:var(--muted)}
         <button id="endSetBtn" disabled>Finish set</button>
         <button id="voiceBtn" aria-pressed="true">Voice: on</button>
         <button id="guideBtn" aria-pressed="true">Setup guide: on</button>
+        <button id="demoBtn" aria-pressed="false">Show demo</button>
         <label class="field" for="quality">Tracking
           <select id="quality">
             <option value="lite">Fast</option>
@@ -470,7 +472,8 @@ footer a{color:var(--muted)}
         <div class="cats" id="exCats" role="tablist" aria-label="Exercise type"></div>
         <div class="cats" id="exSub" hidden role="group" aria-label="Stretch type"></div>
         <div class="ex" id="exList"></div>
-        <details class="how" open><summary id="howTitle">How to do it</summary><p id="howText"></p><p class="note" id="howView"></p><div id="coachBox"></div></details>
+        <details class="how" open><summary id="howTitle">How to do it</summary><p id="howText"></p><p class="note" id="howView"></p><div class="demo" id="howDemo" aria-hidden="false"></div>
+        <div id="coachBox"></div></details>
         <label class="field" for="circuitSel" style="margin-top:10px">Circuit <select id="circuitSel"></select></label>
         <p class="note" id="circuitOut" role="status"></p>
         <div class="row" style="margin-top:12px">

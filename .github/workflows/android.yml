@@ -54,6 +54,8 @@ jobs:
         run: |
           node --check guide.js
           node --check coach-data.js
+          node --check buddy.js
+          node --check demos.js
           node --check exercises.js
           node --check reps.js
           node --check app.js

@@ -8,6 +8,7 @@ import { initRide } from "./ride.js?v=24";
 import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=24";
 import { evaluate, createGuide } from "./guide.js?v=24";
 import { COACH } from "./coach-data.js?v=24";
+import { createBuddy } from "./buddy.js?v=25";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -29,7 +30,21 @@ let guideOn=(()=>{try{return localStorage.getItem("formiq.guide")!=="off"}catch{
 function paintGuideBtn(){ $("guideBtn").textContent="Setup guide: "+(guideOn?"on":"off"); $("guideBtn").setAttribute("aria-pressed",guideOn); }
 $("guideBtn").onclick=()=>{ guideOn=!guideOn; try{localStorage.setItem("formiq.guide",guideOn?"on":"off")}catch{} paintGuideBtn(); guide.reset(); if(!guideOn) showGuide(null); };
 $("gSkip").onclick=()=>{ guide.start(); tracker.rearm(); showGuide(null); speak("Go"); };
+/* chibi coach: demo in the exercise panel, and a pop-up on the camera view whenever you need to (re)align */
+const panelBuddy=createBuddy($("howDemo")), popBuddy=createBuddy($("popDemo"));
+let popKey="", demoPinned=false;
+function setPopup(on){
+  const card=$("demoCard");
+  if(on){
+    if(popKey!==exKey){ popBuddy.set(exKey); popKey=exKey; }
+    $("popName").textContent=EX[exKey].name;
+    if(card.hidden){ card.hidden=false; popBuddy.play(); }
+  } else if(!card.hidden){ card.hidden=true; popBuddy.stop(); }
+}
+$("demoBtn").onclick=()=>{ demoPinned=!demoPinned; $("demoBtn").setAttribute("aria-pressed",demoPinned); $("demoBtn").textContent=demoPinned?"Hide demo":"Show demo"; setPopup(demoPinned||!$("guide").hidden&&!guideDone()); };
+const guideDone=()=>guide.started;
 function showGuide(g){
+  setPopup(demoPinned||!!g&&(g.phase==="guide"||g.phase==="paused"||g.phase==="count"));
   const el=$("guide");
   if(!g){ el.hidden=true; return; }
   el.hidden=false;
@@ -80,6 +95,7 @@ function renderEx(){
   $("howText").textContent=e.how;
   $("howView").textContent=`Camera: ${e.view} view, whole body in the picture.`+(e.kind==="hold"?" Counts the seconds you hold the pose.":e.kind==="alt"?" Each side counts as one.":"");
   $("targetLbl").textContent=isHold(exKey)?"Seconds per set":"Reps per set";
+  panelBuddy.set(exKey); if(!running) panelBuddy.play(); else panelBuddy.stop();
   const c=COACH[exKey];
   $("coachBox").innerHTML=!c?"":`<div class="coach"><h4>Works</h4><div class="musc">${c.muscles.split(", ").map(m=>`<span>${esc(m)}</span>`).join("")}</div>
     <h4>Step by step</h4><ol>${c.steps.map(t=>`<li>${esc(t)}</li>`).join("")}</ol>
@@ -310,7 +326,7 @@ async function startCamera(){
     await video.play();
     const mirror=facing==="user"; video.classList.toggle("mirror",mirror); canvas.classList.toggle("mirror",mirror);
     $("overlay").hidden=true; $("bigrep").hidden=false; $("flipBtn").disabled=false; $("camBtn").textContent="Stop camera";
-    running=true; loop();
+    running=true; panelBuddy.stop(); loop();
   }catch(e){
     $("ovTitle").textContent="Camera unavailable";
     $("ovText").textContent= e.name==="NotAllowedError"?"Camera permission was denied. Allow camera access in your browser's site settings, then try again.":
@@ -319,7 +335,7 @@ async function startCamera(){
     $("overlay").hidden=false; $("status").textContent="";
   }finally{$("startBtn").disabled=false;$("camBtn").disabled=false;}
 }
-function stopSource(){running=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
+function stopSource(){running=false;panelBuddy.play();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
 $("startBtn").onclick=startCamera;
 $("camBtn").onclick=()=>{if(running&&stream){stopSource();$("camBtn").textContent="Start camera";$("flipBtn").disabled=true;finishSet(true);}else startCamera();};
 $("flipBtn").onclick=()=>{facing=facing==="user"?"environment":"user";startCamera();};
