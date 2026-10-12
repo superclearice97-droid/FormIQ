@@ -12,11 +12,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.superclearice97.formiq"
+        applicationId = "io.github.superclearice97.formiq" + if (System.getenv("FORMIQ_DEV_BUILD") == "1") ".dev" else ""
         minSdk = 26
         targetSdk = 36
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
-        versionName = System.getenv("VERSION_NAME") ?: "1.7.0-dev"
+        versionName = (System.getenv("VERSION_NAME") ?: "1.7.0-dev") + if (System.getenv("FORMIQ_DEV_BUILD") == "1") "-dev" else ""
     }
 
     signingConfigs {
