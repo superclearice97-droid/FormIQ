@@ -1,4 +1,4 @@
-run 21 · success · signed=1 · Mon Oct 12 16:02:51 UTC 2026
+run 22 · success · signed=1 · Mon Oct 12 16:19:08 UTC 2026
 == errors
 3:> Task :app:preBuild UP-TO-DATE
 4:> Task :app:preReleaseBuild UP-TO-DATE
@@ -24,12 +24,12 @@ run 21 · success · signed=1 · Mon Oct 12 16:02:51 UTC 2026
 24:> Task :app:parseReleaseLocalResources
 25:> Task :app:processReleaseMainManifest
 26:> Task :app:processReleaseManifest
-27:> Task :app:javaPreCompileRelease
-28:> Task :app:desugarReleaseFileDependencies
-29:> Task :app:mergeReleaseStartupProfile
-30:> Task :app:processReleaseManifestForPackage
-31:> Task :app:mergeReleaseArtProfile
-32:> Task :app:mergeReleaseShaders
+27:> Task :app:desugarReleaseFileDependencies
+28:> Task :app:javaPreCompileRelease
+29:> Task :app:processReleaseManifestForPackage
+30:> Task :app:mergeReleaseStartupProfile
+31:> Task :app:mergeReleaseShaders
+32:> Task :app:mergeReleaseArtProfile
 33:> Task :app:compileReleaseShaders NO-SOURCE
 34:> Task :app:generateReleaseAssets UP-TO-DATE
 35:> Task :app:mergeReleaseAssets
@@ -81,12 +81,12 @@ Daemon will be stopped at the end of the build
 > Task :app:parseReleaseLocalResources
 > Task :app:processReleaseMainManifest
 > Task :app:processReleaseManifest
-> Task :app:javaPreCompileRelease
 > Task :app:desugarReleaseFileDependencies
-> Task :app:mergeReleaseStartupProfile
+> Task :app:javaPreCompileRelease
 > Task :app:processReleaseManifestForPackage
-> Task :app:mergeReleaseArtProfile
+> Task :app:mergeReleaseStartupProfile
 > Task :app:mergeReleaseShaders
+> Task :app:mergeReleaseArtProfile
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
 > Task :app:mergeReleaseAssets
@@ -116,13 +116,13 @@ w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/su
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_4-1791820930575.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_4-1791821892662.json
 
-BUILD SUCCESSFUL in 40s
+BUILD SUCCESSFUL in 54s
 44 actionable tasks: 44 executed
-total 24504
-drwxr-xr-x 3 runner runner     4096 Oct 12 16:02 .
-drwxr-xr-x 3 runner runner     4096 Oct 12 16:02 ..
--rw-r--r-- 1 runner runner 25071892 Oct 12 16:02 app-release.apk
-drwxr-xr-x 4 runner runner     4096 Oct 12 16:02 baselineProfiles
--rw-r--r-- 1 runner runner      724 Oct 12 16:02 output-metadata.json
+total 24512
+drwxr-xr-x 3 runner runner     4096 Oct 12 16:19 .
+drwxr-xr-x 3 runner runner     4096 Oct 12 16:19 ..
+-rw-r--r-- 1 runner runner 25080842 Oct 12 16:19 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 12 16:19 baselineProfiles
+-rw-r--r-- 1 runner runner      724 Oct 12 16:19 output-metadata.json
