@@ -1,5 +1,6 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
 import "./secure.js?v=21";
+import { initStretch } from "./stretch.js?v=23";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
 import { initFood } from "./food.js?v=21";
 import { initAI } from "./ai.js?v=21";
@@ -215,7 +216,7 @@ function ensureConsent(){
 window.formiqEnsureConsent=ensureConsent;
 
 /* ---------- tabs ---------- */
-const TABS=["workout","food","activity","ride"];
+const TABS=["workout","stretch","food","activity","ride"];
 function showTab(name){
   for(const t of TABS){ const T=t[0].toUpperCase()+t.slice(1); $("tab"+T).setAttribute("aria-selected",name===t); $(t+"View").hidden=name!==t; }
   document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"tab-"+name}));
@@ -312,3 +313,6 @@ async function renderSecurity(){
   }
 }
 renderSecurity();
+
+/* Initialize the offline mobility tab without touching camera inference. */
+initStretch();
