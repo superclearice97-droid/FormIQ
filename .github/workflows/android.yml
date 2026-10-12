@@ -34,8 +34,7 @@ jobs:
           rm -rf "$W" && mkdir -p "$W"
           cp index.html privacy.html terms.html licenses.html *.js "$W/"
           cp -r vendor "$W/vendor"
-          rm -f "$W/vendor/MANIFEST"
-          test -s "$W/vendor/models/pose_landmarker_heavy.task" || { echo "Heavy tracking model missing"; exit 1; }
+          rm -f "$W/vendor/models/pose_landmarker_heavy.task" "$W/vendor/MANIFEST"
           du -sh "$W"
       - name: Signing key
         env:
