@@ -1,5 +1,6 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
 import "./secure.js?v=21";
+import { initStretch } from "./stretch.js?v=23";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
 import { initFood } from "./food.js?v=21";
 import { initAI } from "./ai.js?v=21";
@@ -14,6 +15,7 @@ const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
 const VIS=0.35;
 /* ---------- state ---------- */
 let fps=0,fpsN=0,fpsT=performance.now();
+let poseLatencyMs=0,poseLatencyPeakMs=0,poseSamples=0;
 let landmarker=null, stream=null, facing="user", running=false, voice=true, lastTs=-1;
 let exKey="squat";
 const tracker=createTracker(exKey);
@@ -188,14 +190,21 @@ function loop(){
     lastTs=video.currentTime;
     if(canvas.width!==video.videoWidth){canvas.width=video.videoWidth;canvas.height=video.videoHeight;}
     let res;
-    try{ res=landmarker.detectForVideo(video,performance.now()); }
+    const inferStart=performance.now();
+    try{ res=landmarker.detectForVideo(video,inferStart); }
     catch(err){ $("status").textContent="Pose tracking error: "+(err.message||err); schedule(); return; }
-    const t=performance.now(); fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
+    const t=performance.now();
+    const latency=t-inferStart;
+    poseLatencyMs=poseSamples?poseLatencyMs*0.9+latency*0.1:latency;
+    poseLatencyPeakMs=Math.max(poseLatencyPeakMs,latency);
+    poseSamples++;
+    fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
     const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?t:video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
     draw(r.img||null); analyze(r);
   }
   schedule();
 }
+window.FormIQTrackingDiagnostics=()=>({fps,meanInferenceMs:Number(poseLatencyMs.toFixed(1)),peakInferenceMs:Number(poseLatencyPeakMs.toFixed(1)),samples:poseSamples,model:modelKey});
 function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(()=>loop()); else requestAnimationFrame(loop); }
 
 /* ---------- consent (shown once per browser, again if the terms version changes) ---------- */
@@ -215,7 +224,7 @@ function ensureConsent(){
 window.formiqEnsureConsent=ensureConsent;
 
 /* ---------- tabs ---------- */
-const TABS=["workout","food","activity","ride"];
+const TABS=["workout","stretch","food","activity","ride"];
 function showTab(name){
   for(const t of TABS){ const T=t[0].toUpperCase()+t.slice(1); $("tab"+T).setAttribute("aria-selected",name===t); $(t+"View").hidden=name!==t; }
   document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"tab-"+name}));
@@ -312,3 +321,6 @@ async function renderSecurity(){
   }
 }
 renderSecurity();
+
+/* Initialize the offline mobility tab without touching camera inference. */
+initStretch();

@@ -5,7 +5,7 @@
 name: Android app
 on:
   push:
-    branches: [main]
+    branches: [main, feature/stretch-library-health-foundation]
     paths-ignore: ['README.md', '.github/workflows/probe.yml', '.github/workflows/vendor.yml', '.github/workflows/deps-verify.yml']
   workflow_dispatch:
 permissions:
@@ -17,6 +17,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      FORMIQ_DEV_BUILD: ${{ github.ref != 'refs/heads/main' && '1' || '0' }}
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.7.${{ github.run_number }}
     steps:
@@ -35,6 +36,7 @@ jobs:
           cp index.html privacy.html terms.html licenses.html *.js "$W/"
           cp -r vendor "$W/vendor"
           rm -f "$W/vendor/models/pose_landmarker_heavy.task" "$W/vendor/MANIFEST"
+          test -f "$W/stretch.js"
           du -sh "$W"
       - name: Signing key
         env:
@@ -48,13 +50,25 @@ jobs:
           else
             echo "No signing key yet: building as a check only."
           fi
+      - name: JavaScript syntax validation
+        run: |
+          node --check stretch.js
+          node --check app.js
       - name: Build
         working-directory: android
         run: |
           set -o pipefail
           gradle assembleRelease --no-daemon --stacktrace --warning-mode=summary 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: Upload development APK
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: FormIQ-development-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 14
+          if-no-files-found: error
       - name: Publish release
-        if: env.SIGNED == '1'
+        if: env.SIGNED == '1' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -67,7 +81,7 @@ jobs:
           File SHA-256: \`$SUM\`
           Signing certificate SHA-256: \`$CERT\`"
       - name: Save build report to the ci-logs branch
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         run: |
           {
             echo "run ${{ github.run_number }} · ${{ job.status }} · signed=${SIGNED:-0} · $(date -u)"
