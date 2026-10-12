@@ -42,9 +42,12 @@ jobs:
         shell: bash
         working-directory: desktop
         run: |
-          npm version "1.7.${{ github.run_number }}" --no-git-tag-version --allow-same-version
-          npm install --no-audit --no-fund
-          npx electron --version
+          set -o pipefail
+          {
+            npm version "1.7.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+            npm install --no-audit --no-fund
+            npx electron --version
+          } 2>&1 | tee "$RUNNER_TEMP/install.log"
       - name: Syntax check
         shell: bash
         working-directory: desktop
@@ -54,7 +57,9 @@ jobs:
         working-directory: desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder ${{ matrix.args }} --publish never
+        run: |
+          set -o pipefail
+          npx electron-builder ${{ matrix.args }} --publish never 2>&1 | tee "$RUNNER_TEMP/build.log"
       - name: "Smoke test (Linux) - start the packaged app and check the page loads"
         if: matrix.name == 'linux'
         shell: bash
@@ -65,6 +70,23 @@ jobs:
           FORMIQ_SMOKE=1 timeout 90 xvfb-run -a ./smoke/formiq --no-sandbox --disable-gpu 2>&1 | tee smoke.log || true
           grep -q '^FORMIQ_SMOKE {' smoke.log
           grep -q '"cam":true' smoke.log && grep -q '"desktop":true' smoke.log && grep -q '"secure":true' smoke.log
+      - name: Save logs to the ci-logs branch
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "desktop ${{ matrix.name }} run ${{ github.run_number }} $(date -u)"
+            for f in install build; do [ -f "$RUNNER_TEMP/$f.log" ] && { echo "== $f (tail)"; tail -80 "$RUNNER_TEMP/$f.log"; }; done
+            [ -f desktop/smoke.log ] && { echo "== smoke"; tail -40 desktop/smoke.log; }
+          } > "$RUNNER_TEMP/desktop-${{ matrix.name }}.txt"
+          for i in 1 2 3; do
+            rm -rf "$RUNNER_TEMP/logs"
+            git clone -q --depth 1 -b ci-logs "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" "$RUNNER_TEMP/logs" || exit 0
+            cp "$RUNNER_TEMP/desktop-${{ matrix.name }}.txt" "$RUNNER_TEMP/logs/"
+            cd "$RUNNER_TEMP/logs"; git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add . && git commit -qm "desktop ${{ matrix.name }} ${{ github.run_number }}" && git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" HEAD:ci-logs && break
+            cd - >/dev/null; sleep 3
+          done
       - name: List files
         shell: bash
         working-directory: desktop/dist
