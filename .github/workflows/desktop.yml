@@ -1,0 +1,104 @@
+# Builds the FormIQ desktop app (Electron) for Linux, Windows and macOS and publishes the files to the rolling
+# "desktop-latest" release, so the download links on the install page never change.
+# Linux: FormIQ-linux-x64.AppImage, .zip, .tar.gz and .deb. Windows: .zip (no install) and a Setup .exe. macOS: .dmg and .zip.
+# These builds are not code-signed (Windows SmartScreen / macOS Gatekeeper will warn once); checksums are published.
+name: Desktop app
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md', '.github/workflows/probe.yml', '.github/workflows/vendor.yml', '.github/workflows/deps-verify.yml', '.github/workflows/android.yml', 'android/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: desktop
+  cancel-in-progress: true
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux, args: "--linux --x64" }
+          - { os: windows-latest, name: windows, args: "--win --x64" }
+          - { os: macos-latest, name: mac, args: "--mac --x64 --arm64" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Put the web app inside the desktop app
+        shell: bash
+        run: |
+          W=desktop/www
+          rm -rf "$W" && mkdir -p "$W"
+          cp index.html privacy.html terms.html licenses.html *.js "$W/"
+          cp -r vendor "$W/vendor"
+          rm -f "$W/vendor/MANIFEST"
+          test -f "$W/guide.js" && test -f "$W/vendor/three/three.module.min.js"
+          du -sh "$W"
+      - name: Install
+        shell: bash
+        working-directory: desktop
+        run: |
+          npm version "1.7.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+          npm install --no-audit --no-fund
+          npx electron --version
+      - name: Syntax check
+        shell: bash
+        working-directory: desktop
+        run: node --check main.js && node --check preload.js
+      - name: Build
+        shell: bash
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder ${{ matrix.args }} --publish never
+      - name: "Smoke test (Linux) - start the packaged app and check the page loads"
+        if: matrix.name == 'linux'
+        shell: bash
+        working-directory: desktop
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgbm1 libasound2t64 >/dev/null || true
+          mkdir -p smoke && unzip -q dist/FormIQ-linux-x64.zip -d smoke
+          FORMIQ_SMOKE=1 timeout 90 xvfb-run -a ./smoke/formiq --no-sandbox --disable-gpu 2>&1 | tee smoke.log || true
+          grep -q '^FORMIQ_SMOKE {' smoke.log
+          grep -q '"cam":true' smoke.log && grep -q '"desktop":true' smoke.log && grep -q '"secure":true' smoke.log
+      - name: List files
+        shell: bash
+        working-directory: desktop/dist
+        run: ls -la
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          path: |
+            desktop/dist/FormIQ-*.AppImage
+            desktop/dist/FormIQ-*.zip
+            desktop/dist/FormIQ-*.tar.gz
+            desktop/dist/FormIQ-*.deb
+            desktop/dist/FormIQ-*.dmg
+            desktop/dist/FormIQ-*.exe
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish to the desktop-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd out && ls -la
+          sha256sum FormIQ-* > SHA256SUMS.txt
+          NOTES="Desktop FormIQ for Linux, Windows and Mac (build ${{ github.run_number }}). Pick your system on https://superclearice97-droid.github.io/FormIQ/install.html
+
+          Not code-signed: Windows SmartScreen or macOS may ask you to confirm once. SHA-256 checksums are in SHA256SUMS.txt."
+          gh release view desktop-latest >/dev/null 2>&1 || gh release create desktop-latest --title "FormIQ desktop (latest)" --notes "$NOTES" --prerelease
+          gh release edit desktop-latest --notes "$NOTES" --prerelease
+          gh release upload desktop-latest FormIQ-* SHA256SUMS.txt --clobber

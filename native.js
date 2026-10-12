@@ -3,6 +3,12 @@
    (Strava's sign-in pages and other sites can't). Provides Bluetooth (navigator.bluetooth), speech,
    keep-screen-on, file saving, all-day steps, Health Connect and update checks. */
 (function () {
+  if (window.FormIQDesktop && !window.FormIQBridge) {   // the Linux / Windows / Mac app: same page, no "get the app" box
+    document.documentElement.dataset.app = "desktop";
+    const hide = () => document.querySelectorAll("[data-web-only]").forEach(el => el.hidden = true);
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", hide); else hide();
+    return;
+  }
   const B = window.FormIQBridge;
   if (!B) return;
   let seq = 0; const pending = new Map(), listeners = {};

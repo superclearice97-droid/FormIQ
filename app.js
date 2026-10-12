@@ -389,11 +389,11 @@ async function startCamera(){
     $("startBtn").disabled=true; $("camBtn").disabled=true;
     await loadModel();
     stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey); guide.reset();
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+    stream=await navigator.mediaDevices.getUserMedia({video:{...(camDev?{deviceId:{exact:camDev}}:{facingMode:facing}),width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
     video.srcObject=stream;
     await new Promise(r=>{ if(video.readyState>=1) r(); else video.onloadedmetadata=()=>r(); });
     await video.play();
-    const mirror=facing==="user"; video.classList.toggle("mirror",mirror); canvas.classList.toggle("mirror",mirror);
+    const mirror=camDev?!/back|rear|environment/i.test((stream.getVideoTracks()[0]?.label)||""):facing==="user"; video.classList.toggle("mirror",mirror); canvas.classList.toggle("mirror",mirror);
     $("overlay").hidden=true; $("bigrep").hidden=false; $("flipBtn").disabled=false; $("camBtn").textContent="Stop camera";
     running=true; panelBuddy.stop(); loop();
   }catch(e){
@@ -407,7 +407,15 @@ async function startCamera(){
 function stopSource(){running=false;resetCam();panelBuddy.play();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
 $("startBtn").onclick=startCamera;
 $("camBtn").onclick=()=>{if(running&&stream){stopSource();$("camBtn").textContent="Start camera";$("flipBtn").disabled=true;finishSet(true);}else startCamera();};
-$("flipBtn").onclick=()=>{facing=facing==="user"?"environment":"user";startCamera();};
+let camDev=null;   // a specific camera chosen on a computer with several
+$("flipBtn").onclick=async()=>{
+  try{
+    const cams=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==="videoinput");
+    const phone=/Android|iPhone|iPad/i.test(navigator.userAgent);
+    if(cams.length>1&&!phone){ const cur=camDev||stream?.getVideoTracks()[0]?.getSettings().deviceId; const i=cams.findIndex(c=>c.deviceId===cur); camDev=cams[(i+1)%cams.length].deviceId; startCamera(); return; }
+  }catch{}
+  camDev=null; facing=facing==="user"?"environment":"user"; startCamera();
+};
 $("endSetBtn").onclick=()=>finishSet();
 $("videoFile").onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;

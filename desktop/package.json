@@ -1,0 +1,39 @@
+{
+  "name": "formiq-desktop",
+  "productName": "FormIQ",
+  "version": "1.7.0",
+  "description": "FormIQ: camera-based rep counting and form coach (desktop app)",
+  "author": "FormIQ <noreply@users.noreply.github.com>",
+  "homepage": "https://superclearice97-droid.github.io/FormIQ/",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": ">=38.0.0",
+    "electron-builder": ">=26.0.0"
+  },
+  "build": {
+    "appId": "io.github.superclearice97.formiq",
+    "productName": "FormIQ",
+    "copyright": "FormIQ",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "package.json", "www/**/*"],
+    "asar": true,
+    "artifactName": "FormIQ-${os}-${arch}.${ext}",
+    "linux": {
+      "target": ["AppImage", "tar.gz", "zip", "deb"],
+      "category": "Utility",
+      "executableName": "formiq",
+      "maintainer": "FormIQ <noreply@users.noreply.github.com>",
+      "synopsis": "Camera rep counter and form coach",
+      "desktopActions": {}
+    },
+    "win": { "target": ["zip", "nsis"], "icon": "build/icon.ico" },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "artifactName": "FormIQ-Setup-${arch}.${ext}" },
+    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.healthcare-fitness", "identity": null }
+  }
+}
