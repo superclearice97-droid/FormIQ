@@ -1,0 +1,12 @@
+desktop linux run 2 Mon Oct 12 19:15:16 UTC 2026
+== install (tail)
+v1.7.2
+npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 284 packages in 8s
+Downloading Electron binary...
+[2217:1012/191516.140626:FATAL:sandbox/linux/suid/client/setuid_sandbox_host.cc:166] The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /home/runner/work/FormIQ/FormIQ/desktop/node_modules/electron/dist/chrome-sandbox is owned by root and has mode 4755.
+/home/runner/work/FormIQ/FormIQ/desktop/node_modules/electron/dist/electron exited with signal SIGTRAP
