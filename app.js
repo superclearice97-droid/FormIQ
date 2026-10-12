@@ -215,7 +215,7 @@ function ensureConsent(){
 window.formiqEnsureConsent=ensureConsent;
 
 /* ---------- tabs ---------- */
-const TABS=["workout","food","activity","ride"];
+const TABS=["workout","stretch","food","activity","ride"];
 function showTab(name){
   for(const t of TABS){ const T=t[0].toUpperCase()+t.slice(1); $("tab"+T).setAttribute("aria-selected",name===t); $(t+"View").hidden=name!==t; }
   document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"tab-"+name}));
@@ -260,9 +260,13 @@ $("videoFile").onchange=async e=>{
   video.onended=()=>{finishSet();running=false;$("status").textContent="Video analyzed.";};
   await video.play(); $("overlay").hidden=true; $("bigrep").hidden=false; running=true; lastTs=-1; loop();
 };
+if(!MODELS[modelKey])modelKey="full";
+let previousQuality=modelKey==="heavy"?"full":modelKey;
+$("aggressiveTracking").checked=modelKey==="heavy";
+$("aggressiveTracking").onchange=()=>{if($("aggressiveTracking").checked){if(modelKey!=="heavy")previousQuality=modelKey;$("quality").value="heavy";}else{$("quality").value=previousQuality;} $("quality").onchange();};
 $("quality").value=modelKey;
 $("quality").onchange=async()=>{
-  modelKey=$("quality").value; try{localStorage.setItem("formiq.quality",modelKey)}catch{}
+  modelKey=$("quality").value; $("aggressiveTracking").checked=modelKey==="heavy";if(modelKey!=="heavy")previousQuality=modelKey; try{localStorage.setItem("formiq.quality",modelKey)}catch{}
   const wasRunning=running; running=false;
   try{landmarker?.close();}catch{} landmarker=null; tracker.resetSmoothing();
   await loadModel(); if(wasRunning){running=true;lastTs=-1;loop();}
@@ -312,3 +316,34 @@ async function renderSecurity(){
   }
 }
 renderSecurity();
+
+/* Guided full-body stretching, entirely on-device. */
+const STRETCHES=[
+["Arm circles","dynamic","Shoulders","Stand tall and make controlled circles with both arms; reverse halfway.",30],
+["Torso rotations","dynamic","Spine / core","Stand with feet hip-width apart and rotate gently from side to side.",30],
+["Leg swings","dynamic","Hips / hamstrings","Hold a stable support; swing one leg forward and backward without arching your back. Switch legs halfway.",40],
+["Walking knee hugs","dynamic","Glutes / hips","Step forward, draw one knee toward the chest briefly, release and alternate.",40],
+["Alternating side lunges","dynamic","Inner thighs / legs","Step wide, bend one knee while keeping the other leg extended, then alternate.",40],
+["Ankle circles","dynamic","Ankles / calves","Lift one foot slightly and rotate the ankle slowly; change direction and feet.",30],
+["Cross-body shoulder stretch","static","Shoulders","Bring one arm across your chest and hold it gently with the other; switch halfway.",40],
+["Doorway chest stretch","static","Chest","Place forearms against a doorway and step forward until you feel a mild chest stretch.",30],
+["Overhead triceps stretch","static","Arms","Reach one elbow overhead and gently guide it back; switch halfway.",40],
+["Seated spinal twist","static","Back / trunk","Sit upright and rotate gently through the torso, without forcing the twist; switch sides.",40],
+["Seated hamstring stretch","static","Hamstrings","Extend one leg, hinge forward from the hips with a straight back; switch halfway.",40],
+["Standing quad stretch","static","Quadriceps","Hold support, bring one heel toward your glute and keep knees close; switch halfway.",40],
+["Wall calf stretch","static","Calves","Place hands on a wall, step one foot back and keep its heel down; switch halfway.",40],
+["Kneeling hip flexor stretch","static","Hip flexors","From a padded half-kneeling position, gently tuck the pelvis and shift forward; switch sides.",40]
+];
+let stretchMode="dynamic",stretchIndex=-1,stretchRemaining=0,stretchInterval=null;
+function stopStretchClock(){if(stretchInterval!==null){clearInterval(stretchInterval);stretchInterval=null;}}
+function paintStretchClock(){const m=Math.floor(stretchRemaining/60),s=stretchRemaining%60;$("stretchClock").textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");}
+function renderStretches(){
+ $("stretchDynamic").ariaPressed=String(stretchMode==="dynamic");$("stretchStatic").ariaPressed=String(stretchMode==="static");
+ $("stretchList").innerHTML=STRETCHES.map((s,i)=>({...{s,i}})).filter(x=>x.s[1]===stretchMode).map(({s,i})=>'<button type="button" data-stretch="'+i+'" style="text-align:left;padding:14px;white-space:normal"><strong>'+s[0]+'</strong><br><small>'+s[2]+' · '+s[4]+' sec</small><p>'+s[3]+'</p></button>').join("");
+ $("stretchList").querySelectorAll("button").forEach(b=>b.onclick=()=>{stopStretchClock();stretchIndex=Number(b.dataset.stretch);stretchRemaining=STRETCHES[stretchIndex][4];$("stretchCurrent").textContent=STRETCHES[stretchIndex][0];paintStretchClock();});
+}
+for(const mode of ["Dynamic","Static"])$("stretch"+mode).onclick=()=>{stopStretchClock();stretchMode=mode.toLowerCase();stretchIndex=-1;stretchRemaining=0;$("stretchCurrent").textContent="Select a stretch";paintStretchClock();renderStretches();};
+$("stretchStart").onclick=()=>{if(stretchIndex<0||stretchInterval!==null)return;if(stretchRemaining<=0)stretchRemaining=STRETCHES[stretchIndex][4];stretchInterval=setInterval(()=>{stretchRemaining=Math.max(0,stretchRemaining-1);paintStretchClock();if(!stretchRemaining){stopStretchClock();$("stretchCurrent").textContent=STRETCHES[stretchIndex][0]+" — complete";}},1000);};
+$("stretchPause").onclick=stopStretchClock;
+$("stretchReset").onclick=()=>{stopStretchClock();stretchRemaining=stretchIndex<0?0:STRETCHES[stretchIndex][4];paintStretchClock();};
+renderStretches();
