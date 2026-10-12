@@ -22,11 +22,10 @@ This is a development branch. Do not ship until the Android APK and actual camer
 - Keep health data on device by default; no cloud transfer without explicit user action.
 - Add workout volume, progression, rest and mobility dashboards. Do not treat fitness estimates as medical diagnoses.
 
-## Stretching (implemented in draft)
-- 12 dynamic + 12 static full-body movements, timers, local completion history and export.
-- Verify each movement's instruction and accessibility on a real phone.
-- Stretch duration is a suggested interval, not an individual prescription.
-- Test timer pause/resume, tab switching, storage-disabled behavior and Android native file export.
+## Stretching (implemented)
+- 12 dynamic (counted) + 12 static (timed) stretches live in the main Workout tab and use the same camera tracking, setup guide, scoring and history as every other exercise. The separate Stretch tab was removed.
+- Older timer-only entries saved under `formiq.mobility.v1` are no longer shown; they stay on the device until "Delete all my data".
+- Verify each movement on a real phone; stretch duration is a suggested interval, not an individual prescription.
 
 ## Release gates
 - JavaScript syntax checks, Gradle assembleRelease, and Android UI smoke test.

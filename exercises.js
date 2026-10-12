@@ -87,6 +87,37 @@ export function geometry(img, world, asp, T) {
     legRatio: () => avg([[23, 25, 27], [24, 26, 28]].map(([h, k, a]) => {
       if (!ok(h, k, a)) return null; const sh = Math.hypot((img[k].x - img[a].x) * asp, img[k].y - img[a].y);
       return sh > 0.03 ? (img[a].y - img[h].y) / sh : null; })),
+    shoulderLift: () => sh && hp ? (hp.y - sh.y) / T : null,
+    headUp: () => sh && ok(0) ? (sh.y - img[0].y) / T : null,
+    armReachUp: () => { const a = [[11, 15], [12, 16]].filter(([s, w]) => ok(s, w)).map(([s, w]) => (img[s].y - img[w].y) / T); return a.length ? Math.max(...a) : null; },
+    elbowsBack: () => world ? avg([[11, 13], [12, 14]].map(([s, e]) => ok(s, e) ? world[e].z - world[s].z : null)) : null,
+    feetX: () => an && hp ? (an.x - hp.x) / T : null,
+    // a hand pulled across the body: 1 = at its own shoulder, 0 = middle of the chest, below 0 = crossed over
+    crossed: () => {
+      if (!ok(11, 12) || !sh) return null;
+      const r = [[11, 15], [12, 16]].filter(([s, w]) => ok(w)).map(([s, w]) => (P(w).x - sh.x) / ((P(s).x - sh.x) || 1e-6));
+      return r.length ? Math.min(...r) : null;
+    },
+    // one elbow pointing up with the hand dropped behind the head
+    tricepsUp: () => [[11, 13, 15], [12, 14, 16]].some(([s, e, w]) => ok(s, e, w) && img[e].y < img[s].y - 0.25 * T && img[w].y > img[e].y),
+    // one upper arm out to the side at shoulder height with the elbow bent (forearm up, as on a doorframe)
+    armOnFrame: () => [[11, 13, 15], [12, 14, 16]].some(([s, e, w]) => ok(s, e, w) && Math.abs(img[e].y - img[s].y) < 0.3 * T && Math.abs(P(e).x - P(s).x) > 0.3 * T && img[w].y < img[e].y),
+    // one arm straight out in front at shoulder height
+    armForward: () => [[11, 13, 15], [12, 14, 16]].some(([s, e, w]) => ok(s, e, w) && (ang(s, e, w) ?? 0) > 145 && Math.abs(img[w].y - img[s].y) < 0.35 * T),
+    // forward lean toward the feet (side view): + leaning over the legs, - leaning back
+    leanToFeet: () => {
+      if (!sh || !hp || !an) return null;
+      const dir = Math.sign(an.x - hp.x) || 1;
+      return Math.atan2((sh.x - hp.x) * dir, hp.y - sh.y) * 180 / Math.PI;
+    },
+    kneeMax: () => { const a = [g.knee("l"), g.knee("r")].filter(x => x != null); return a.length ? Math.max(...a) : null; },
+    // a heel pulled up behind (standing quad stretch)
+    heelUp: () => [[23, 25, 27, 28], [24, 26, 28, 27]].some(([h, k, a, o]) => ok(h, k, a, o) && (ang(h, k, a) ?? 180) < 80 && img[o].y - img[a].y > 0.5 * T),
+    // one shin flat on the floor (half-kneeling)
+    shinDown: () => [[25, 27], [26, 28]].some(([k, a]) => ok(k, a) && Math.abs(img[k].y - img[a].y) < 0.2 * T),
+    // an ankle resting on the other knee (figure-four)
+    ankleOnKnee: () => [[27, 26], [28, 25]].some(([a, k]) => ok(a, k) && Math.hypot(P(a).x - P(k).x, img[a].y - img[k].y) < 0.45 * T),
+    feetApartX: () => ok(27, 28) ? Math.abs(P(27).x - P(28).x) / T : null,
     footHigh: () => ok(27, 28) ? Math.abs(img[27].y - img[28].y) / T : null,
   };
   return g;
@@ -155,7 +186,7 @@ const squatTrack = (f, m, phase) => {
 const lunging = g => { const k = g.kneeMin(); return k != null && k < 140; };
 
 export const CATS = [
-  ["strength", "Strength"], ["arms", "Arms"], ["core", "Core"], ["legs", "Legs"], ["cardio", "Cardio"], ["yoga", "Yoga & holds"],
+  ["strength", "Strength"], ["arms", "Arms"], ["core", "Core"], ["legs", "Legs"], ["cardio", "Cardio"], ["stretch", "Stretch"], ["yoga", "Yoga & holds"],
 ];
 
 export const EX = {
@@ -311,6 +342,78 @@ export const EX = {
     how: "Push-up position. Drive one knee toward your chest, then switch legs quickly.",
     value: c => c.g.climber() }),
 
+
+  /* ----- stretch & mobility: moving (dynamic) stretches count reps or sides, still (static) ones are timed ----- */
+  armcircles: A({ name: "Arm circles", cat: "stretch", stretch: "dynamic", view: "front", thr: 0.1, full: 0.3, perPair: true, target: 10,
+    how: "Stand tall with arms straight out to the sides. Make controlled circles; reverse halfway. Each circle counts.",
+    value: c => (c.g.handSpread() ?? 0) > 1.5 ? c.g.armsUp() : null }),
+  shoulderrolls: S({ name: "Shoulder rolls", cat: "stretch", stretch: "dynamic", view: "front", dir: "up", travel: 0.05, full: 0.12, target: 10, cardioPace: true,
+    how: "Arms relaxed. Roll your shoulders up, back and down. Reverse direction halfway.",
+    value: c => c.g.shoulderLift() }),
+  armswings: S({ name: "Cross-body arm swings", cat: "stretch", stretch: "dynamic", view: "front", dir: "up", travel: 1.0, full: 1.8, target: 12, cardioPace: true,
+    how: "Swing both arms across your chest, then open them wide. Stay relaxed.",
+    value: c => c.g.handSpread() }),
+  scapsqueeze: S({ name: "Shoulder blade squeezes", cat: "stretch", stretch: "dynamic", view: "front", dir: "up", travel: 0.05, full: 0.1, target: 12,
+    how: "Elbows bent at your sides. Draw your elbows and shoulder blades back together, then release. Don't shrug.",
+    value: c => c.g.elbowsBack() }),
+  trunkrot: A({ name: "Standing trunk rotations", cat: "stretch", stretch: "dynamic", view: "front", thr: 18, full: 40, target: 16,
+    how: "Rotate your upper body gently left and right, keeping your hips facing forward.",
+    value: c => c.g.twist() }),
+  catcow: A({ name: "Cat-cow", cat: "stretch", stretch: "dynamic", view: "side", thr: 0.12, full: 0.3, perPair: true, posture: "plank", target: 8,
+    how: "On hands and knees. Round your back and drop your head (cat), then arch and look up (cow). Each cat and cow counts once.",
+    value: c => c.g.headUp() }),
+  threadneedle: S({ name: "Thread the needle", cat: "stretch", stretch: "dynamic", view: "side or front", dir: "up", travel: 0.6, full: 1.0, posture: "plank", target: 8,
+    how: "On hands and knees. Reach one arm under your body, then rotate and reach it up to the ceiling. Alternate sides.",
+    value: c => c.g.armReachUp() }),
+  hipcircles: A({ name: "Hip circles", cat: "stretch", stretch: "dynamic", view: "front", thr: 0.06, full: 0.15, perPair: true, target: 10,
+    how: "Hands on hips, feet planted. Circle your hips slowly; switch direction halfway. Each circle counts.",
+    value: c => c.g.hipShift() }),
+  legswingfb: A({ name: "Front-to-back leg swings", cat: "stretch", stretch: "dynamic", view: "side", thr: 0.2, full: 0.7, perPair: true, target: 10,
+    how: "Hold a chair or wall for balance. Swing one leg forward and back comfortably, then switch legs. Each swing counts.",
+    value: c => c.g.feetX() }),
+  legswingside: A({ name: "Side-to-side leg swings", cat: "stretch", stretch: "dynamic", view: "front", thr: 0.2, full: 0.6, perPair: true, target: 10,
+    how: "Hold a support. Swing one leg across your body and out to the side, then switch legs. Each swing counts.",
+    value: c => c.g.feetX() }),
+  kneehugs: A({ name: "Knee hugs", cat: "stretch", stretch: "dynamic", view: "front or side", thr: 0.45, full: 1.0, target: 10,
+    how: "Lift one knee and hug it to your chest for a moment, then switch. Step forward between hugs if you have room.",
+    value: c => c.g.kneeDiff() }),
+  laterallunge: A({ name: "Alternating side lunges", cat: "stretch", stretch: "dynamic", view: "front", thr: 0.22, full: 0.5, target: 10,
+    how: "Feet wide. Shift to one side, bending that knee and keeping the other leg straight. Then shift to the other side.",
+    value: c => c.g.hipShift() }),
+  crossbody: H({ name: "Cross-body shoulder stretch", cat: "stretch", stretch: "static", view: "front", posture: "upright",
+    how: "Bring one arm across your chest and hold it above the elbow with the other hand. Hold, then switch sides.",
+    check: g => (g.crossed() ?? 1) > -0.2 ? "Pull one arm across your chest" : "" }),
+  tricepsstretch: H({ name: "Overhead triceps stretch", cat: "stretch", stretch: "static", view: "front", posture: "upright",
+    how: "Raise one arm, bend the elbow so your hand drops behind your head, and gently hold the elbow. Switch sides.",
+    check: g => g.tricepsUp() ? "" : "Point one elbow up with the hand behind your head" }),
+  chest: H({ name: "Doorway chest stretch", cat: "stretch", stretch: "static", view: "front", posture: "upright",
+    how: "Forearm on a doorframe or wall, elbow at shoulder height. Gently turn your body away. Switch sides.",
+    check: g => g.armOnFrame() ? "" : "Raise one arm out to the side, elbow bent at shoulder height" }),
+  wrist: H({ name: "Wrist flexor stretch", cat: "stretch", stretch: "static", view: "side", posture: "upright",
+    how: "Hold one arm straight out in front, palm up, and gently pull the fingers down with the other hand. Switch sides.",
+    check: g => g.armForward() ? "" : "Hold one arm straight out in front" }),
+  child: H({ name: "Child's pose", cat: "stretch", stretch: "static", view: "side",
+    how: "Kneel, sit back toward your heels and reach your arms forward on the floor. Breathe steadily.",
+    check: g => { const l = g.lean(), a = g.anklesUp(); return l == null ? "Turn side-on" : l < 70 ? "Fold forward, arms reaching ahead" : a != null && a < -0.6 ? "Sit back toward your heels" : ""; } }),
+  supinetwist: H({ name: "Lying spinal twist", cat: "stretch", stretch: "static", view: "front or side", posture: "lying",
+    how: "Lie on your back and guide one bent knee across your body toward the floor. Hold, then switch sides.",
+    check: g => Math.abs(g.twist() ?? 0) < 20 ? "Let your knee drop across your body" : "" }),
+  hamstring: H({ name: "Seated hamstring stretch", cat: "stretch", stretch: "static", view: "side", posture: "floor",
+    how: "Sit with one leg straight out. Hinge forward from the hips toward your foot without rounding your back. Switch legs.",
+    check: g => (g.kneeMax() ?? 0) < 150 ? "Straighten one leg out in front" : (g.leanToFeet() ?? 0) < 20 ? "Lean forward over your straight leg" : "" }),
+  quad: H({ name: "Standing quad stretch", cat: "stretch", stretch: "static", view: "side", posture: "upright",
+    how: "Hold a chair or wall. Bend one knee and bring your heel toward your seat, knees side by side. Switch legs.",
+    check: g => g.heelUp() ? "" : "Pull one heel up behind you" }),
+  calf: H({ name: "Wall calf stretch", cat: "stretch", stretch: "static", view: "side",
+    how: "Hands on a wall, step one leg back and press that heel down with the knee straight. Switch legs.",
+    check: g => (g.feetApartX() ?? 0) < 0.6 ? "Step one foot back" : (g.kneeMax() ?? 0) < 155 ? "Straighten your back leg" : (g.kneeMin() ?? 180) > 150 ? "Bend your front knee, leaning into the wall" : "" }),
+  hipflexor: H({ name: "Kneeling hip flexor stretch", cat: "stretch", stretch: "static", view: "side",
+    how: "Kneel on one knee with the other foot in front. Tuck your hips and shift gently forward. Switch sides.",
+    check: g => !g.shinDown() ? "Kneel with one shin on the floor" : (g.kneeMin() ?? 180) > 130 ? "Front foot forward, knee bent" : (g.lean() ?? 90) > 35 ? "Keep your chest up" : "" }),
+  figure4: H({ name: "Figure-four glute stretch", cat: "stretch", stretch: "static", view: "side", posture: "lying",
+    how: "Lie on your back, cross one ankle over the other knee and gently draw both legs toward your chest. Switch sides.",
+    check: g => g.ankleOnKnee() ? "" : "Rest one ankle on the other knee" }),
+
   /* ----- yoga & holds ----- */
   plank: H({ name: "Plank", cat: "yoga", view: "side", posture: "plank",
     how: "Forearms or hands on the floor, body in a straight line from head to heels. Hold.",
@@ -336,7 +439,7 @@ export const EX = {
   warrior3: H({ name: "Warrior III", cat: "yoga", view: "side",
     how: "Balance on one leg, lean forward and lift the other leg behind you until your body is level. Hold, then switch.",
     check: g => (g.footHigh() ?? 0) < 0.7 ? "Lift your back leg higher" : (g.lean() ?? 0) < 55 ? "Lean your chest forward" : "" }),
-  fan: H({ name: "Seated side stretch", cat: "yoga", view: "front", posture: "seated",
+  fan: H({ name: "Seated side bend", cat: "stretch", view: "front", posture: "seated", stretch: "static",
     how: "Sit with legs wide. Reach one arm overhead and lean to the side. Hold, then switch.",
     check: g => Math.abs(g.sideBend() ?? 0) < 15 ? "Lean further to the side" : "" }),
   boat: H({ name: "Boat pose", cat: "yoga", view: "side", posture: "floor",
@@ -348,11 +451,15 @@ export const EX = {
 };
 
 /* Ready-made circuits: each step is [exercise, target]. */
+for (const k in EX) EX[k].key = k;
+
 export const CIRCUITS = [
   { id: "starter", name: "Starter full body (≈10 min)", steps: [["jog", 60], ["squat", 10], ["pushup", 8], ["standtwist", 20], ["bridge", 12], ["plank", 20], ["forwardfold", 20]] },
   { id: "legs", name: "Leg day", steps: [["jog", 60], ["squat", 12], ["widesquat", 10], ["lunge", 12], ["kneelift", 20], ["bridge", 15], ["chair", 30]] },
   { id: "core", name: "Core burner", steps: [["standtwist", 20], ["sidebend", 16], ["legraise", 10], ["russiantwist", 20], ["flutter", 30], ["plank", 30], ["boat", 20]] },
   { id: "arms", name: "Arms & shoulders", steps: [["press", 12], ["curl", 16], ["frontraise", 10], ["bowpull", 12], ["kickback", 12], ["armspin", 10], ["pushup", 8]] },
   { id: "cardio", name: "Cardio blast", steps: [["jog", 60], ["jacks", 30], ["highknees", 40], ["jumprope", 60], ["climber", 30], ["jog", 60]] },
+  { id: "warmup", name: "Warm-up (moving stretches)", steps: [["armcircles", 10], ["shoulderrolls", 10], ["trunkrot", 16], ["hipcircles", 10], ["legswingfb", 10], ["legswingside", 10], ["kneehugs", 10], ["laterallunge", 10]] },
+  { id: "cooldown", name: "Cool-down (still stretches)", steps: [["crossbody", 30], ["tricepsstretch", 30], ["quad", 30], ["calf", 30], ["hamstring", 40], ["child", 40], ["figure4", 40]] },
   { id: "yoga", name: "Yoga flow", steps: [["tree", 20], ["warrior1", 20], ["warrior2", 20], ["warrior3", 15], ["chair", 20], ["hinge", 20], ["forwardfold", 30]] },
 ];

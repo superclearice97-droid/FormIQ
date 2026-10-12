@@ -1,12 +1,12 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=21";
-import { initStretch } from "./stretch.js?v=23";
+import "./secure.js?v=24";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=21";
-import { initAI } from "./ai.js?v=21";
-import { initActivity } from "./activity.js?v=21";
-import { initRide } from "./ride.js?v=21";
-import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=21";
+import { initFood } from "./food.js?v=24";
+import { initAI } from "./ai.js?v=24";
+import { initActivity } from "./activity.js?v=24";
+import { initRide } from "./ride.js?v=24";
+import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=24";
+import { evaluate, createGuide } from "./guide.js?v=24";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -22,14 +22,57 @@ const tracker=createTracker(exKey);
 let set=newSet(), sets=[], restTimer=null, lastRepAt=0;
 function newSet(){return {ex:exKey,reps:[],started:Date.now()};}
 
+/* ---------- setup guide: walks you into the picture, counts 3-2-1, then reps start counting ---------- */
+const guide=createGuide();
+let guideOn=(()=>{try{return localStorage.getItem("formiq.guide")!=="off"}catch{return true}})(), goUntil=0;
+function paintGuideBtn(){ $("guideBtn").textContent="Setup guide: "+(guideOn?"on":"off"); $("guideBtn").setAttribute("aria-pressed",guideOn); }
+$("guideBtn").onclick=()=>{ guideOn=!guideOn; try{localStorage.setItem("formiq.guide",guideOn?"on":"off")}catch{} paintGuideBtn(); guide.reset(); if(!guideOn) showGuide(null); };
+$("gSkip").onclick=()=>{ guide.start(); tracker.rearm(); showGuide(null); speak("Go"); };
+function showGuide(g){
+  const el=$("guide");
+  if(!g){ el.hidden=true; return; }
+  el.hidden=false;
+  const mirror=video.classList.contains("mirror"), W=$("stage").clientWidth, H=$("stage").clientHeight, a=(video.videoWidth||4)/(video.videoHeight||3);
+  let dw=W, dh=W/a, ox=0, oy=0; if(dh>H){ dh=H; dw=H*a; }
+  ox=(W-dw)/2; oy=(H-dh)/2;
+  const b=g.box, bx=$("gBox");
+  if(b){
+    const x0=mirror?1-b.x1:b.x0, x1=mirror?1-b.x0:b.x1, y0=Math.max(0,b.y0), y1=Math.min(1,b.y1);
+    bx.style.display="block"; bx.style.left=(ox+x0*dw)+"px"; bx.style.top=(oy+y0*dh)+"px"; bx.style.width=((x1-x0)*dw)+"px"; bx.style.height=((y1-y0)*dh)+"px";
+  } else bx.style.display="none";
+  bx.classList.toggle("ok",g.phase==="count"||g.phase==="go");
+  const ar=$("gArrow");
+  if(g.arrow){ const right=(g.arrow==="toRight")!==mirror; ar.hidden=false; ar.textContent=right?"→":"←"; ar.className="garrow "+(right?"r":"l"); ar.style.setProperty("--n",right?"-12px":"12px"); } else ar.hidden=true;
+  const c=$("gCount"); c.hidden=!(g.phase==="count"||g.phase==="go"); c.textContent=g.phase==="go"?"Go!":g.count;
+  const m=$("gMsg"); m.className="gmsg"+(g.phase==="count"||g.phase==="go"?" ok":"");
+  m.hidden=g.phase==="go"; m.textContent=g.phase==="count"?"Hold still…":(g.msg||"");
+  $("gSkip").hidden=g.phase==="go";
+}
+/* true when reps may be counted this frame */
+function guideStep(r,t){
+  if(!guideOn||!video.srcObject){ if(!$("guide").hidden) showGuide(null); return true; }
+  if(!$("restPanel").hidden){ guide.reset(); showGuide(null); return false; }
+  const e=evaluate(r.img||null, EX[exKey], (video.videoWidth||4)/(video.videoHeight||3), r.postureOk!==false, r.postureHint);
+  const g=guide.step(e,t);
+  if(g.say) speak(g.say);
+  if(g.phase==="go"){ tracker.rearm(); goUntil=t+900; showGuide(g); return false; }
+  if(g.phase==="live"){ if(t<goUntil) showGuide({phase:"go",box:g.box}); else showGuide(null); return true; }
+  showGuide(g); return false;
+}
+
 /* ---------- UI: exercise picker, how-to and circuits ---------- */
-let exCat=EX[exKey].cat, circuit=null;   // circuit: {c: circuit, i: step index}
+let exCat=EX[exKey].cat, circuit=null, stretchKind="dynamic";   // circuit: {c: circuit, i: step index}
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const isHold=k=>EX[k].kind==="hold";
 function renderEx(){
   $("exCats").innerHTML=CATS.map(([k,n])=>`<button type="button" role="tab" data-c="${k}" aria-selected="${k===exCat}">${n}</button>`).join("");
   $("exCats").querySelectorAll("button").forEach(b=>b.onclick=()=>{exCat=b.dataset.c;renderEx();});
-  $("exList").innerHTML=Object.entries(EX).filter(([,e])=>e.cat===exCat).map(([k,e])=>`<button type="button" data-k="${k}" aria-pressed="${k===exKey}">${esc(e.name)}<small>${esc(e.view)}${e.kind==="hold"?" · hold":""}</small></button>`).join("");
+  const sub=$("exSub"); sub.hidden=exCat!=="stretch";
+  if(exCat==="stretch"){
+    sub.innerHTML=[["dynamic","Warm-up (moving)"],["static","Cool-down (holds)"]].map(([k,n])=>`<button type="button" data-s="${k}" aria-pressed="${k===stretchKind}">${n}</button>`).join("");
+    sub.querySelectorAll("button").forEach(b=>b.onclick=()=>{stretchKind=b.dataset.s;renderEx();});
+  }
+  $("exList").innerHTML=Object.entries(EX).filter(([,e])=>e.cat===exCat&&(exCat!=="stretch"||e.stretch===stretchKind)).map(([k,e])=>`<button type="button" data-k="${k}" aria-pressed="${k===exKey}">${esc(e.name)}<small>${esc(e.view)}${e.kind==="hold"?" · hold":""}</small></button>`).join("");
   $("exList").querySelectorAll("button").forEach(b=>b.onclick=()=>{ if(circuit){circuit=null;renderCircuit();$("circuitSel").value="";} selectExercise(b.dataset.k); });
   const e=EX[exKey];
   $("howTitle").textContent=`How to do it: ${e.name}`;
@@ -39,7 +82,7 @@ function renderEx(){
 }
 function selectExercise(k,target){
   if(set.reps.length) finishSet(true);
-  exKey=k; exCat=EX[k].cat; set=newSet(); tracker.setExercise(k);
+  exKey=k; exCat=EX[k].cat; if(EX[k].stretch) stretchKind=EX[k].stretch; set=newSet(); tracker.setExercise(k); guide.reset();
   $("targetReps").value=target??EX[k].target;
   renderEx(); renderLive();
 }
@@ -90,7 +133,7 @@ function summarize(s){
 function finishSet(switching){
   if(!set.reps.length) return;
   const sm=summarize(set); sets.push(sm);
-  set=newSet(); tracker.setExercise(exKey); renderSets(); renderLive();
+  set=newSet(); tracker.setExercise(exKey); guide.reset(); renderSets(); renderLive();
   if(switching) return;
   if(circuit){   // circuits move on to the next exercise by themselves
     circuit.i++;
@@ -200,7 +243,9 @@ function loop(){
     poseSamples++;
     fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
     const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?t:video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
-    draw(r.img||null); analyze(r);
+    draw(r.img||null);
+    if(guideStep(r,t)) analyze(r);
+    else { setPhase(guide.started?"Go":"Getting ready"); hud([[fps+" fps",fps&&fps<10?"warn":""]]); $("romBar").style.width="0%"; }
   }
   schedule();
 }
@@ -224,7 +269,7 @@ function ensureConsent(){
 window.formiqEnsureConsent=ensureConsent;
 
 /* ---------- tabs ---------- */
-const TABS=["workout","stretch","food","activity","ride"];
+const TABS=["workout","food","activity","ride"];
 function showTab(name){
   for(const t of TABS){ const T=t[0].toUpperCase()+t.slice(1); $("tab"+T).setAttribute("aria-selected",name===t); $(t+"View").hidden=name!==t; }
   document.dispatchEvent(new CustomEvent("formiq:camera",{detail:"tab-"+name}));
@@ -241,7 +286,7 @@ async function startCamera(){
   try{
     $("startBtn").disabled=true; $("camBtn").disabled=true;
     await loadModel();
-    stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey);
+    stopSource(); tracker.resetSmoothing(); tracker.setExercise(exKey); guide.reset();
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
     video.srcObject=stream;
     await new Promise(r=>{ if(video.readyState>=1) r(); else video.onloadedmetadata=()=>r(); });
@@ -284,7 +329,7 @@ async function wake(){try{await navigator.wakeLock?.request("screen");}catch{}}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&running)wake();});
 video.addEventListener("playing",wake);
 
-renderEx(); renderLive(); renderSets(); renderHistory();
+paintGuideBtn(); renderEx(); renderLive(); renderSets(); renderHistory();
 initFood(); initAI(); initActivity(); initRide();
 if(TABS.includes(location.hash.slice(1))) showTab(location.hash.slice(1));
 addEventListener("hashchange",()=>{const h=location.hash.slice(1); if(TABS.includes(h)) showTab(h);});
@@ -322,5 +367,3 @@ async function renderSecurity(){
 }
 renderSecurity();
 
-/* Initialize the offline mobility tab without touching camera inference. */
-initStretch();

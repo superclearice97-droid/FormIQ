@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=21";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=24";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */
@@ -129,7 +129,7 @@ export function createTracker(exKey = "squat") {
       if (t - st.badSince > 1500) st.upSince = 0;
     }
     const ready = !!st.upSince && t - st.upSince >= 500;
-    const common = { img, quality: q, framing: framing(img, def) };
+    const common = { img, quality: q, framing: framing(img, def), postureOk, postureHint: P.hint };
 
     if (def.kind === "hold") return holdStep(g, t, postureOk, ready, common);
 
@@ -281,7 +281,14 @@ export function createTracker(exKey = "squat") {
     return { score: sc, faults, dur: +dur.toFixed(1), rom: Math.round(rom * 100) };
   }
 
-  return { update, setExercise, resetSmoothing, get exercise() { return key; } };
+  /* Start counting from now on (after the setup guide), keeping what was learned about the person. */
+  function rearm() {
+    st.det = newDet(); st.armSide = null;
+    st.alt.side = 0; st.alt.since = 0; st.alt.visits = 0;
+    st.hold = { held: 0, last: 0, secs: 0, good: 0 };
+  }
+
+  return { update, setExercise, resetSmoothing, rearm, get exercise() { return key; } };
 }
 
 export function framing(lm, def) {

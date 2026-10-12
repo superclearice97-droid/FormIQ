@@ -7,7 +7,7 @@
 <title>FormIQ</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com https://api.github.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<script src="native.js?v=21"></script>
+<script src="native.js?v=24"></script>
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
 @font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
@@ -43,6 +43,17 @@ h1 span{color:var(--accent)}
 @media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
 .stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3;max-width:100%}
 .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.guide{position:absolute;inset:0;pointer-events:none}
+.guide .gbox{position:absolute;border:3px dashed rgba(255,255,255,.75);border-radius:14px;transition:all .15s}
+.guide .gbox.ok{border:3px solid #3ccf8e;box-shadow:0 0 0 9999px rgba(0,0,0,.0)}
+.guide .gmsg{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);max-width:92%;background:rgba(8,12,10,.86);color:#fff;border-radius:14px;padding:10px 16px;font:700 clamp(16px,4.4vw,22px)/1.2 var(--display);text-align:center}
+.guide .gmsg.ok{background:rgba(31,138,91,.92)}
+.guide .gcount{position:absolute;inset:0;display:grid;place-items:center;font:800 min(40vw,180px)/1 var(--display);color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.7)}
+.guide .garrow{position:absolute;top:42%;font:800 64px/1 var(--display);color:#ffd166;text-shadow:0 2px 12px rgba(0,0,0,.7);animation:gnudge 0.9s ease-in-out infinite}
+.guide .garrow.l{left:12px}.guide .garrow.r{right:12px}
+.guide .gskip{position:absolute;top:10px;left:10px;pointer-events:auto;font-size:13px;padding:6px 12px;border-radius:999px}
+@keyframes gnudge{50%{transform:translateX(var(--n,10px))}}
+@media (prefers-reduced-motion:reduce){.guide .garrow{animation:none}}
 .mirror{transform:scaleX(-1)}
 .overlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#e7eee9;background:linear-gradient(160deg,#16201b,#0b0f0d)}
 .overlay p{max-width:36ch;color:#a9b8b0;margin:8px 0 16px}
@@ -238,27 +249,10 @@ footer a{color:var(--muted)}
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tabWorkout" aria-selected="true" aria-controls="workoutView">Workout</button>
-    <button role="tab" id="tabStretch" aria-selected="false" aria-controls="stretchView">Stretch</button>
     <button role="tab" id="tabFood" aria-selected="false" aria-controls="foodView">Food</button>
     <button role="tab" id="tabActivity" aria-selected="false" aria-controls="activityView">Activity</button>
     <button role="tab" id="tabRide" aria-selected="false" aria-controls="rideView">Ride</button>
   </div>
-
-  <section id="stretchView" role="tabpanel" aria-labelledby="tabStretch" hidden>
-    <div class="panel" style="display:grid;gap:12px">
-      <h2 style="margin:0;font:800 28px var(--display)">Stretch & mobility</h2>
-      <p class="sub">24 guided full-body movements. Dynamic mobility before exercise; gentle static holds afterward. Stop if painful.</p>
-      <div class="controls"><button id="stretchDynamic" aria-pressed="true">Dynamic · 12</button><button id="stretchStatic" aria-pressed="false">Static · 12</button></div>
-      <div class="row"><label class="field">Body area <select id="stretchArea"><option value="all">All areas</option><option value="upper">Upper body</option><option value="core">Core & back</option><option value="lower">Lower body</option></select></label><span id="stretchCount" class="sub"></span></div>
-      <div id="stretchCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px"></div>
-      <div class="panel" style="position:sticky;bottom:8px;z-index:2">
-        <div class="row"><strong id="stretchActive">Choose a stretch</strong><span class="rest" id="stretchClock">00:30</span></div>
-        <div class="controls"><button class="primary" id="stretchStart">Start</button><button id="stretchPause">Pause</button><button id="stretchReset">Reset</button><button id="stretchDone">Log completed</button></div>
-        <p class="sub" id="stretchProgress" aria-live="polite">Choose a movement to begin.</p>
-      </div>
-      <div class="panel"><strong>Mobility history</strong><p class="sub" id="stretchSummary">No completed stretches yet.</p><button id="stretchExport">Export mobility history (JSON)</button></div>
-    </div>
-  </section>
 
   <div class="food" id="foodView" role="tabpanel" aria-labelledby="tabFood" hidden>
     <section style="display:grid;gap:12px;min-width:0">
@@ -435,6 +429,13 @@ footer a{color:var(--muted)}
         <canvas id="canvas"></canvas>
         <div class="bigrep" id="bigrep" hidden>0<small>/10</small></div>
         <div class="hud" id="hud"></div>
+        <div class="guide" id="guide" hidden aria-live="polite">
+          <div class="gbox" id="gBox"></div>
+          <div class="garrow" id="gArrow" hidden></div>
+          <div class="gcount" id="gCount" hidden></div>
+          <div class="gmsg" id="gMsg"></div>
+          <button type="button" id="gSkip" class="gskip">Start now</button>
+        </div>
         <div class="overlay" id="overlay">
           <div>
             <strong id="ovTitle">Set up your camera</strong>
@@ -450,6 +451,7 @@ footer a{color:var(--muted)}
         <input id="videoFile" type="file" accept="video/*" hidden>
         <button id="endSetBtn" disabled>Finish set</button>
         <button id="voiceBtn" aria-pressed="true">Voice: on</button>
+        <button id="guideBtn" aria-pressed="true">Setup guide: on</button>
         <label class="field" for="quality">Tracking
           <select id="quality">
             <option value="lite">Fast</option>
@@ -458,13 +460,14 @@ footer a{color:var(--muted)}
           </select></label>
       </div>
       <p class="note" id="status">The pose model loads the first time you start. Everything runs on this device.</p>
-      <p class="note">Rep counter v3 (11 Oct 2026): 54 exercises, holds and circuits. Each exercise only counts in its own starting position.</p>
+      <p class="note">Rep counter v4 (12 Oct 2026): 77 exercises incl. tracked stretches, setup guide, holds and circuits. Each exercise only counts in its own starting position.</p>
     </section>
 
     <aside class="rail">
       <div class="panel">
         <div class="label">Exercise</div>
         <div class="cats" id="exCats" role="tablist" aria-label="Exercise type"></div>
+        <div class="cats" id="exSub" hidden role="group" aria-label="Stretch type"></div>
         <div class="ex" id="exList"></div>
         <details class="how" open><summary id="howTitle">How to do it</summary><p id="howText"></p><p class="note" id="howView"></p></details>
         <label class="field" for="circuitSel" style="margin-top:10px">Circuit <select id="circuitSel"></select></label>
@@ -553,6 +556,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=23"></script>
+<script type="module" src="app.js?v=24"></script>
 </body>
 </html>

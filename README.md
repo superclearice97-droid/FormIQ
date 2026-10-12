@@ -3,12 +3,14 @@
 Camera-based workout tracker that runs in the browser on phones and computers.
 
 - Tracks body pose on-device (MediaPipe Pose Landmarker); no video is uploaded
-- Counts reps, sides and hold time for 54 exercises, no equipment needed:
+- Setup guide: tells you how to get into the picture (step back, move left or right, turn, starting position), counts 3-2-1, and only then starts counting. It pauses if you leave the frame and can be turned off.
+- Counts reps, sides and hold time for 77 exercises, no equipment needed:
   - Strength: squat, push-up, pull-up, bicep curl, lunge
   - Arms: overhead press, front raise, behind-the-head press, bow pull, one-arm shoulder press, triceps kickback, overhead arm twist, overhead arm circles
   - Core: overhead side bend, standing twist, lunge twist, pendulum bend, overhead bend, overhead hip shake, knee-to-chest, seated forward press, plank hip lift, leg raise, open & close leg raise, Russian twist, flutter kick, seated arm raise, leg scissors, crunch, sit-up
   - Legs: wide squat, overhead squat, seated knee squeeze, hip lift (glute bridge), knee lift, side step, arm raise combo, knee lift & arm raise
   - Cardio: jog in place, high knees, jump rope (with or without a rope), jumping jacks, mountain climber
+  - Stretches, tracked like everything else: 12 moving warm-up stretches (counted) and 12 still cool-down stretches (timed while your position is right), with Warm-up and Cool-down circuits
   - Yoga & holds (timed): plank, chair, tree, hinge, revolved crescent lunge, warrior I, II and III, seated side stretch, boat, standing forward fold
 - Ready-made circuits (starter full body, leg day, core, arms, cardio, yoga flow) that move from one exercise to the next for you
 - Scores each rep 0–100 for range of motion and form faults

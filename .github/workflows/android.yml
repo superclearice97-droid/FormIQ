@@ -36,7 +36,7 @@ jobs:
           cp index.html privacy.html terms.html licenses.html *.js "$W/"
           cp -r vendor "$W/vendor"
           rm -f "$W/vendor/models/pose_landmarker_heavy.task" "$W/vendor/MANIFEST"
-          test -f "$W/stretch.js"
+          test -f "$W/guide.js"
           du -sh "$W"
       - name: Signing key
         env:
@@ -52,7 +52,9 @@ jobs:
           fi
       - name: JavaScript syntax validation
         run: |
-          node --check stretch.js
+          node --check guide.js
+          node --check exercises.js
+          node --check reps.js
           node --check app.js
       - name: Build
         working-directory: android
