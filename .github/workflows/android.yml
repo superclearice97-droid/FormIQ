@@ -17,6 +17,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      FORMIQ_DEV_BUILD: ${{ github.ref != 'refs/heads/main' && '1' || '0' }}
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.7.${{ github.run_number }}
     steps:
