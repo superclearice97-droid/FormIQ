@@ -5,7 +5,7 @@
 name: Android app
 on:
   push:
-    branches: [main]
+    branches: [main, feature/stretch-library-health-foundation]
     paths-ignore: ['README.md', '.github/workflows/probe.yml', '.github/workflows/vendor.yml', '.github/workflows/deps-verify.yml']
   workflow_dispatch:
 permissions:
@@ -35,6 +35,7 @@ jobs:
           cp index.html privacy.html terms.html licenses.html *.js "$W/"
           cp -r vendor "$W/vendor"
           rm -f "$W/vendor/models/pose_landmarker_heavy.task" "$W/vendor/MANIFEST"
+          test -f "$W/stretch.js"
           du -sh "$W"
       - name: Signing key
         env:
@@ -54,7 +55,7 @@ jobs:
           set -o pipefail
           gradle assembleRelease --no-daemon --stacktrace --warning-mode=summary 2>&1 | tee "$RUNNER_TEMP/build.log"
       - name: Publish release
-        if: env.SIGNED == '1'
+        if: env.SIGNED == '1' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -67,7 +68,7 @@ jobs:
           File SHA-256: \`$SUM\`
           Signing certificate SHA-256: \`$CERT\`"
       - name: Save build report to the ci-logs branch
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         run: |
           {
             echo "run ${{ github.run_number }} · ${{ job.status }} · signed=${SIGNED:-0} · $(date -u)"
