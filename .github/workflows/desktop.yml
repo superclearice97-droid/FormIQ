@@ -46,7 +46,7 @@ jobs:
           {
             npm version "1.7.${{ github.run_number }}" --no-git-tag-version --allow-same-version
             npm install --no-audit --no-fund
-            npx electron --version
+            node -p "require('electron/package.json').version"
           } 2>&1 | tee "$RUNNER_TEMP/install.log"
       - name: Syntax check
         shell: bash

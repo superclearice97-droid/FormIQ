@@ -29,8 +29,7 @@
       "category": "Utility",
       "executableName": "formiq",
       "maintainer": "FormIQ <noreply@users.noreply.github.com>",
-      "synopsis": "Camera rep counter and form coach",
-      "desktopActions": {}
+      "synopsis": "Camera rep counter and form coach"
     },
     "win": { "target": ["zip", "nsis"], "icon": "build/icon.ico" },
     "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "artifactName": "FormIQ-Setup-${arch}.${ext}" },
