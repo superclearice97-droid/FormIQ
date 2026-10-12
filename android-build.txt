@@ -1,4 +1,4 @@
-run 25 · success · signed=1 · Mon Oct 12 18:59:16 UTC 2026
+run 26 · success · signed=1 · Mon Oct 12 19:14:24 UTC 2026
 == errors
 3:> Task :app:preBuild UP-TO-DATE
 4:> Task :app:preReleaseBuild UP-TO-DATE
@@ -33,15 +33,15 @@ run 25 · success · signed=1 · Mon Oct 12 18:59:16 UTC 2026
 33:> Task :app:compileReleaseShaders NO-SOURCE
 34:> Task :app:generateReleaseAssets UP-TO-DATE
 35:> Task :app:mergeReleaseAssets
-36:> Task :app:extractReleaseVersionControlInfo
-37:> Task :app:collectReleaseDependencies
-38:> Task :app:sdkReleaseDependencyData
-39:> Task :app:validateSigningRelease
-40:> Task :app:writeReleaseAppMetadata
-41:> Task :app:writeReleaseSigningConfigVersions
-42:> Task :app:processReleaseResources
-43:> Task :app:compressReleaseAssets
-44:> Task :app:optimizeReleaseResources
+36:> Task :app:processReleaseResources
+37:> Task :app:extractReleaseVersionControlInfo
+38:> Task :app:compressReleaseAssets
+39:> Task :app:collectReleaseDependencies
+40:> Task :app:sdkReleaseDependencyData
+41:> Task :app:validateSigningRelease
+42:> Task :app:writeReleaseAppMetadata
+43:> Task :app:optimizeReleaseResources
+44:> Task :app:writeReleaseSigningConfigVersions
 45:> Task :app:mergeExtDexRelease
 47:> Task :app:compileReleaseKotlin
 52:> Task :app:compileReleaseJavaWithJavac
@@ -90,15 +90,15 @@ Daemon will be stopped at the end of the build
 > Task :app:compileReleaseShaders NO-SOURCE
 > Task :app:generateReleaseAssets UP-TO-DATE
 > Task :app:mergeReleaseAssets
+> Task :app:processReleaseResources
 > Task :app:extractReleaseVersionControlInfo
+> Task :app:compressReleaseAssets
 > Task :app:collectReleaseDependencies
 > Task :app:sdkReleaseDependencyData
 > Task :app:validateSigningRelease
 > Task :app:writeReleaseAppMetadata
-> Task :app:writeReleaseSigningConfigVersions
-> Task :app:processReleaseResources
-> Task :app:compressReleaseAssets
 > Task :app:optimizeReleaseResources
+> Task :app:writeReleaseSigningConfigVersions
 > Task :app:mergeExtDexRelease
 
 > Task :app:compileReleaseKotlin
@@ -116,13 +116,13 @@ w: file:///home/runner/work/FormIQ/FormIQ/android/app/src/main/java/io/github/su
 > Task :app:packageRelease
 > Task :app:createReleaseApkListingFileRedirect
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_4-1791831527026.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_4-1791832404747.json
 
-BUILD SUCCESSFUL in 27s
+BUILD SUCCESSFUL in 1m
 44 actionable tasks: 44 executed
 total 24692
-drwxr-xr-x 3 runner runner     4096 Oct 12 18:59 .
-drwxr-xr-x 3 runner runner     4096 Oct 12 18:59 ..
--rw-r--r-- 1 runner runner 25266143 Oct 12 18:59 app-release.apk
-drwxr-xr-x 4 runner runner     4096 Oct 12 18:59 baselineProfiles
--rw-r--r-- 1 runner runner      724 Oct 12 18:59 output-metadata.json
+drwxr-xr-x 3 runner runner     4096 Oct 12 19:14 .
+drwxr-xr-x 3 runner runner     4096 Oct 12 19:14 ..
+-rw-r--r-- 1 runner runner 25266959 Oct 12 19:14 app-release.apk
+drwxr-xr-x 4 runner runner     4096 Oct 12 19:14 baselineProfiles
+-rw-r--r-- 1 runner runner      724 Oct 12 19:14 output-metadata.json
