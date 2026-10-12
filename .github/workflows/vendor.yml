@@ -20,7 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           OUT="$GITHUB_WORKSPACE/vendor"
-          rm -rf "$OUT" && mkdir -p "$OUT/mediapipe/wasm" "$OUT/models" "$OUT/fonts" "$OUT/barcode"
+          rm -rf "$OUT" && mkdir -p "$OUT/three" "$OUT/mediapipe/wasm" "$OUT/models" "$OUT/fonts" "$OUT/barcode"
           cd "$RUNNER_TEMP"
 
           # MediaPipe Tasks Vision (Apache-2.0)
@@ -28,6 +28,12 @@ jobs:
           mkdir mp && tar xzf mediapipe-tasks-vision-0.10.14.tgz -C mp
           cp mp/package/vision_bundle.mjs "$OUT/mediapipe/"
           cp mp/package/wasm/* "$OUT/mediapipe/wasm/"
+
+          # three.js (MIT) for the 3D coach
+          npm pack three@0.160.0 --silent
+          mkdir th && tar xzf three-0.160.0.tgz -C th
+          cp th/package/build/three.module.min.js th/package/LICENSE "$OUT/three/"
+          echo "0.160.0" > "$OUT/three/THREE_VERSION"
 
           # Pose Landmarker models (Apache-2.0)
           for m in lite full heavy; do

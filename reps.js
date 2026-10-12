@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=26";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=27";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */
@@ -293,7 +293,7 @@ export function createTracker(exKey = "squat") {
 
 export function framing(lm, def) {
   const level = def?.frame || "full";
-  const ids = level === "full" ? [0, 11, 12, 23, 24, 27, 28] : level === "knees" ? [0, 11, 12, 23, 24, 25, 26] : [0, 11, 12, 23, 24];
+  const ids = level === "full" ? [11, 12, 23, 24, 27, 28] : level === "knees" ? [11, 12, 23, 24, 25, 26] : [11, 12, 23, 24];
   const ys = ids.map(i => lm[i]).filter(p => (p.visibility ?? 0) > VIS).map(p => p.y);
   if (ys.length < 3) return null;
   const top = Math.min(...ys), bot = Math.max(...ys);

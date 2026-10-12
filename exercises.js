@@ -149,7 +149,7 @@ const S = (o) => ({ kind: "swing", posture: "upright", unit: "reps", target: 10,
 const A = (o) => ({ kind: "alt", posture: "upright", unit: "reps", target: 20, center: true, ...o });
 const H = (o) => ({ kind: "hold", posture: "any", unit: "sec", target: 30, ...o });
 
-const squatValue = (c) => {   // depth: 0 standing, ~0.5 hips level with knees
+const squatValue = (c) => {   // depth: 0 standing, ~0.5 hips level with knees. Works from whatever is in the picture.
   const g = c.g, r = [], th = [];
   for (const [h, k, a] of [[23, 25, 27], [24, 26, 28]]) {
     if (!g.ok(h, k)) continue;
@@ -158,15 +158,14 @@ const squatValue = (c) => {   // depth: 0 standing, ~0.5 hips level with knees
     const shin = Math.hypot((g.img[k].x - g.img[a].x) * g.asp, g.img[k].y - g.img[a].y);
     if (shin > 0.03) r.push((g.img[a].y - g.img[h].y) / shin);
   }
-  if (r.length) {
-    const ratio = avg(r);
-    if (th.length) c.calib("thigh", avg(th), c.resting);
-    const ref = c.calib("stand", ratio, c.resting);
-    return ref ? Math.max(0, 1 - ratio / ref) : 0;
+  if (th.length) c.calib("thigh", avg(th), c.resting);   // always learn the standing thigh height
+  if (r.length) {            // knees and ankles: hip height over shin length (best)
+    const ref = c.calib("stand", avg(r), c.resting);
+    return ref ? Math.max(0, 1 - avg(r) / ref) : 0;
   }
-  if (th.length) {   // feet out of the picture: use how far the hips drop toward the knees
+  if (th.length) {           // feet out of the picture: how far the hips drop toward the knees
     const ref = c.calib("thigh", avg(th), c.resting, true);
-    return ref ? Math.max(0, 0.5 * (1 - avg(th) / ref)) : null;
+    return ref ? Math.max(0, 0.5 * (1 - avg(th) / ref)) : 0;
   }
   return null;
 };
@@ -454,7 +453,7 @@ export const EX = {
 /* How much of the body the camera must see: "upper" = head to hips (arms, twists, seated and floor core work),
    "knees" = head to knees, otherwise the whole body. */
 const FRAME_UPPER = "curl press frontraise behindhead bowpull shoulderpress kickback armtwist armspin sidebend standtwist pendulum overheadbend hipshake seatedpress seatedraise armraisecombo russiantwist crunch situp armcircles shoulderrolls armswings scapsqueeze trunkrot crossbody tricepsstretch chest wrist fan catcow threadneedle lungetwist".split(" ");
-const FRAME_KNEES = "kneesqueeze bridge kneetochest kneelift kneeliftcombo".split(" ");
+const FRAME_KNEES = "squat widesquat overheadsquat highknees kneesqueeze bridge kneetochest kneelift kneeliftcombo".split(" ");
 for (const k in EX) { EX[k].key = k; EX[k].frame = k === "pullup" ? "hang" : FRAME_UPPER.includes(k) ? "upper" : FRAME_KNEES.includes(k) ? "knees" : "full"; }
 
 export const CIRCUITS = [

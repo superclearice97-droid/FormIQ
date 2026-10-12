@@ -16,3 +16,6 @@
 ./models/pose_landmarker_full.task
 ./models/pose_landmarker_heavy.task
 ./models/pose_landmarker_lite.task
+./three/LICENSE
+./three/THREE_VERSION
+./three/three.module.min.js

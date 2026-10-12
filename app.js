@@ -1,15 +1,15 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=26";
+import "./secure.js?v=27";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=26";
-import { initAI } from "./ai.js?v=26";
-import { initActivity } from "./activity.js?v=26";
-import { initRide } from "./ride.js?v=26";
-import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=26";
-import { evaluate, createGuide } from "./guide.js?v=26";
-import { COACH } from "./coach-data.js?v=26";
-import { createBuddy, setLook, getLook } from "./buddy.js?v=26";
-import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, TOPS, BOTTOMS, DEFAULT_LOOK, randomLook, saveLook, loadLook } from "./looks.js?v=26";
+import { initFood } from "./food.js?v=27";
+import { initAI } from "./ai.js?v=27";
+import { initActivity } from "./activity.js?v=27";
+import { initRide } from "./ride.js?v=27";
+import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=27";
+import { evaluate, createGuide } from "./guide.js?v=27";
+import { COACH } from "./coach-data.js?v=27";
+import { createBuddy, setLook, getLook } from "./buddy3d.js?v=27";
+import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, TOPS, BOTTOMS, DEFAULT_LOOK, randomLook, saveLook, loadLook } from "./looks.js?v=27";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -134,7 +134,7 @@ function showGuide(g){
 function guideStep(r,t){
   if(!guideOn||!video.srcObject){ if(!$("guide").hidden) showGuide(null); return true; }
   if(!$("restPanel").hidden){ guide.reset(); showGuide(null); return false; }
-  const e=evaluate(r.img||null, EX[exKey], (video.videoWidth||4)/(video.videoHeight||3), r.postureOk!==false, r.postureHint, {auto:autoFrame});
+  const e=evaluate(r.img||null, EX[exKey], (video.videoWidth||4)/(video.videoHeight||3), r.postureOk!==false, r.postureHint, {auto:autoFrame, relax:guide.relax});
   const g=guide.step(e,t);
   if(g.say) speak(g.say==="Go!"&&COACH[exKey]?"Go. "+COACH[exKey].cue:g.say);
   if(g.phase==="go"){ tracker.rearm(); goUntil=t+900; showGuide(g); showCoachLine(0); return false; }
@@ -159,7 +159,7 @@ function renderEx(){
   const e=EX[exKey];
   $("howTitle").textContent=`How to do it: ${e.name}`;
   $("howText").textContent=e.how;
-  $("howView").textContent=`Camera: ${e.view} view, whole body in the picture.`+(e.kind==="hold"?" Counts the seconds you hold the pose.":e.kind==="alt"?" Each side counts as one.":"");
+  $("howView").textContent=`Camera: ${e.view} view, ${({full:"your whole body in the picture (the coach settles for less if your space is tight)",knees:"head to knees is enough, no need to show your feet",upper:"head to hips is enough, you can stand close",hang:"your head and arms on the bar"})[e.frame||"full"]}.`+(e.kind==="hold"?" Counts the seconds you hold the pose.":e.kind==="alt"?" Each side counts as one.":"");
   $("targetLbl").textContent=isHold(exKey)?"Seconds per set":"Reps per set";
   panelBuddy.set(exKey); if(!running) panelBuddy.play(); else panelBuddy.stop();
   const c=COACH[exKey];

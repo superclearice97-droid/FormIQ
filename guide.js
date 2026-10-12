@@ -5,24 +5,25 @@
 
    Directions are given as you face the camera ("step to your left"), which is the same whether or not the
    preview is mirrored. On screen an arrow points the way your image needs to move. */
-import { VIS } from "./exercises.js?v=26";
+import { VIS } from "./exercises.js?v=27";
 
 const ok = (p) => p && (p.visibility ?? 1) > VIS;
 /* what the camera has to see, per exercise level (see "frame" in exercises.js). Each group needs at least one of its landmarks,
    so a side-on body (far shoulder hidden) still counts. */
 const GROUPS = {
-  full: [[0], [11, 12], [23, 24], [25, 26], [27, 28]],          // head to ankles
-  knees: [[0], [11, 12], [23, 24], [25, 26]],                    // head to knees
-  upper: [[0], [11, 12], [13, 14], [23, 24]],                    // head, shoulders, arms, hips
-  hang: [[0], [11, 12], [13, 14], [15, 16]],                     // head, shoulders and arms on the bar
+  full: [[11, 12], [23, 24], [25, 26], [27, 28]],               // shoulders to ankles
+  knees: [[11, 12], [23, 24], [25, 26]],                         // shoulders to knees (head and feet are optional)
+  upper: [[11, 12], [13, 14], [23, 24]],                         // shoulders, arms, hips
+  hang: [[11, 12], [13, 14], [15, 16]],                          // shoulders and arms on the bar
+  core: [[11, 12], [23, 24]],                                    // the least we can track with: a shoulder and a hip
 };
-const LABEL = { full: "your whole body", knees: "your head to your knees", upper: "your head to your hips", hang: "your head and arms" };
-const MIN_SIZE = { full: 0.5, knees: 0.38, upper: 0.28, hang: 0.3 };
+const LABEL = { full: "your whole body", knees: "you down to your knees", upper: "you down to your hips", hang: "your arms", core: "your shoulders and hips" };
+const MIN_SIZE = { full: 0.42, knees: 0.3, upper: 0.2, hang: 0.25, core: 0.15 };
 export const levelOf = (def) => def.frame || "full";
 
 export function evaluate(lm, def, asp = 16 / 9, postureOk = true, postureHint = "", opts = {}) {
   if (!lm) return { ok: false, step: "find", msg: "Step into view of the camera", say: "Step into view of the camera" };
-  const level = levelOf(def), groups = GROUPS[level];
+  const base = levelOf(def), level = opts.relax ? (base === "knees" || def.anchor === "feet" ? "knees" : "core") : base, groups = GROUPS[level];
   const pts = lm.filter((p, i) => i <= 32 && ok(p));
   if (pts.length < 5) return { ok: false, step: "find", msg: "Step into view of the camera", say: "Step into view of the camera" };
 
@@ -37,15 +38,16 @@ export function evaluate(lm, def, asp = 16 / 9, postureOk = true, postureHint = 
   const feetGone = missing.some(g => g[0] >= 25), headGone = missing.some(g => g[0] === 0);
   const atEdge = { top: box.y0 < 0.0, bottom: box.y1 > 0.985, left: box.x0 < 0.015, right: box.x1 > 0.985 };
   if (missing.length || atEdge.top || (atEdge.bottom && lowerNeeded) || ((atEdge.left || atEdge.right) && lying)) {
-    const what = level !== "full" ? LABEL[level] : feetGone && !headGone ? "your feet" : headGone && !feetGone ? "your head" : LABEL.full;
-    const m = `Step back so ${what} ${/^your (feet|head and|whole)/.test(what) && what !== "your whole body" && what !== "your head and arms" ? "are" : "is"} in the picture`;
+    const what = level !== "full" ? LABEL[level] : feetGone ? "your feet" : LABEL.full;
+    const small = pts.length >= 12 && !atEdge.top;      // nearly all of you is there: only a small step
+    const m = atEdge.top && !missing.length ? "Lower the camera or step back a little so your head fits" : `Step back${small ? " a little" : ""} so I can see ${what}`;
     return { ok: false, step: "fit", msg: m, say: m, box };
   }
 
   // 2. distance: big enough to track well, but with some room around you (auto-frame zooms in for you)
   const size = lying ? Math.max(box.x1 - box.x0, (box.y1 - box.y0)) : box.y1 - box.y0;
   if (!opts.auto && size < (lying ? 0.45 : MIN_SIZE[level])) return { ok: false, step: "near", msg: "Come a little closer", say: "Come a little closer", box };
-  if (!lying && level !== "hang" && size > 0.97) return { ok: false, step: "far", msg: "Take a step back", say: "Take a step back", box };
+  if (!lying && level !== "hang" && size > 0.99) return { ok: false, step: "far", msg: "Take a step back", say: "Take a step back", box };
 
   // 3. centred left to right (people side-on to the camera often stand off to one side)
   const cx = (box.x0 + box.x1) / 2;
@@ -74,10 +76,13 @@ export function evaluate(lm, def, asp = 16 / 9, postureOk = true, postureHint = 
 /* The guide's moment-to-moment state: needs the checks to pass for a steady 3 seconds (the countdown),
    tolerates a single bad frame, and once started only pauses if you're out of position for 2 seconds. */
 export function createGuide() {
-  let started = false, goodSince = 0, badSince = 0, lastSay = "", lastSayAt = 0, stepName = "", stepSince = 0;
+  let started = false, goodSince = 0, badSince = 0, lastSay = "", lastSayAt = 0, stepName = "", stepSince = 0, relax = false;
+  const FRAMEY = ["fit", "near", "far"];
   return {
     get started() { return started; },
-    reset() { started = false; goodSince = 0; badSince = 0; stepName = ""; },
+    /* true once you have been stuck on a framing step for a few seconds: the guide then settles for what it can see */
+    get relax() { return relax; },
+    reset() { started = false; goodSince = 0; badSince = 0; stepName = ""; relax = false; },
     start() { started = true; goodSince = 0; badSince = 0; },
     /* returns { phase: "guide"|"count"|"go"|"live"|"paused", msg, count, say?, arrow, box } */
     step(e, t) {
@@ -95,6 +100,7 @@ export function createGuide() {
         if (goodSince && t - goodSince > 300) { if (!badSince) badSince = t; if (t - badSince < 250) return { phase: "count", count: 3 - Math.floor((t - goodSince) / 1000), box: e.box }; }
         goodSince = 0; badSince = 0;
         if (e.step !== stepName) { stepName = e.step; stepSince = t; }
+        if (!relax && FRAMEY.includes(e.step) && t - stepSince > 4500) { relax = true; speakOnce("That's fine, I'll track what I can see"); }
         const stuck = t - stepSince > 9000 && e.step !== "find";
         speakOnce(stuck ? e.say + ". Or tap Start now to begin anyway" : e.say);
         return { phase: "guide", stuck, msg: e.msg + (stuck ? " · or tap Start now" : ""), arrow: e.arrow, box: e.box, step: e.step, say };

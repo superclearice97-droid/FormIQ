@@ -3,8 +3,8 @@
    pose = { t: torso lean (0 upright, + leans right), h: head tilt, a:[armL upper, lower, armR upper, lower],
             l:[legL thigh, shin, legR thigh, shin], x: hip offset, y: lift off the ground, sh: shoulder lift }
    In side views index 0/1 is the far limb and 2/3 the near limb, the character faces right. */
-import { DEMOS } from "./demos.js?v=26";
-import { CAPS, HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, DEFAULT_LOOK, loadLook, sanitizeLook } from "./looks.js?v=26";
+import { DEMOS } from "./demos.js?v=27";
+import { CAPS, HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, DEFAULT_LOOK, loadLook, sanitizeLook } from "./looks.js?v=27";
 
 const NS = "http://www.w3.org/2000/svg";
 const W = 220, H = 170, GROUND = 148, BAR = 26;
@@ -53,16 +53,16 @@ const shiftJ = (J, dx, dy) => {
   return r;
 };
 const allPts = J => [[J.hip, 8], [J.sho, 8], [J.head, LEN.head], ...["aL", "aR"].map(k => [J[k][2], 5]), ...["lL", "lR"].map(k => [J[k][2], 5]), ...["lL", "lR"].map(k => [J[k][1], 5])];
-function place(p, view, hang) {
+export function place(p, view, hang) {
   let J = solve(p, view);
   if (hang) { const wy = (J.aL[2][1] + J.aR[2][1]) / 2; return shiftJ(J, 0, BAR + 4 - wy); }
   const low = Math.max(...allPts(J).map(([q, r]) => q[1] + r));
   return shiftJ(J, 0, GROUND - low - (p.y || 0));
 }
-const lerp = (a, b, k) => a + (b - a) * k;
-const lerpPose = (A, B, k) => ({ armK: lerp(A.armK || 1, B.armK || 1, k), t: lerp(A.t, B.t, k), h: lerp(A.h, B.h, k), x: lerp(A.x, B.x, k), y: lerp(A.y, B.y, k), sh: lerp(A.sh, B.sh, k),
+export const lerp = (a, b, k) => a + (b - a) * k;
+export const lerpPose = (A, B, k) => ({ armK: lerp(A.armK || 1, B.armK || 1, k), t: lerp(A.t, B.t, k), h: lerp(A.h, B.h, k), x: lerp(A.x, B.x, k), y: lerp(A.y, B.y, k), sh: lerp(A.sh, B.sh, k),
   a: A.a.map((v, i) => lerp(v, B.a[i], k)), l: A.l.map((v, i) => lerp(v, B.l[i], k)) });
-const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+export const ease = k => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
 
 /* ---------- build the keyframe loop for an exercise ---------- */
 export function buildSequence(key) {
@@ -110,6 +110,7 @@ export function setLook(look) {
   for (const i of instances) i.rebuild();
 }
 export const getLook = () => ({ ...LOOK });
+export const dims = () => ({ LEN, BUILD, W, H, GROUND, BAR });
 setLook(LOOK);
 
 export function createBuddy(host) {

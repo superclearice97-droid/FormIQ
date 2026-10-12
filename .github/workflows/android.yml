@@ -55,6 +55,7 @@ jobs:
           node --check guide.js
           node --check coach-data.js
           node --check buddy.js
+          node --check buddy3d.js
           node --check demos.js
           node --check looks.js
           node --check exercises.js
