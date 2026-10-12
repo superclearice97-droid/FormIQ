@@ -238,10 +238,27 @@ footer a{color:var(--muted)}
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tabWorkout" aria-selected="true" aria-controls="workoutView">Workout</button>
+    <button role="tab" id="tabStretch" aria-selected="false" aria-controls="stretchView">Stretch</button>
     <button role="tab" id="tabFood" aria-selected="false" aria-controls="foodView">Food</button>
     <button role="tab" id="tabActivity" aria-selected="false" aria-controls="activityView">Activity</button>
     <button role="tab" id="tabRide" aria-selected="false" aria-controls="rideView">Ride</button>
   </div>
+
+  <section id="stretchView" role="tabpanel" aria-labelledby="tabStretch" hidden>
+    <div class="panel" style="display:grid;gap:12px">
+      <h2 style="margin:0;font:800 28px var(--display)">Stretch & mobility</h2>
+      <p class="sub">24 guided full-body movements. Dynamic mobility before exercise; gentle static holds afterward. Stop if painful.</p>
+      <div class="controls"><button id="stretchDynamic" aria-pressed="true">Dynamic · 12</button><button id="stretchStatic" aria-pressed="false">Static · 12</button></div>
+      <div class="row"><label class="field">Body area <select id="stretchArea"><option value="all">All areas</option><option value="upper">Upper body</option><option value="core">Core & back</option><option value="lower">Lower body</option></select></label><span id="stretchCount" class="sub"></span></div>
+      <div id="stretchCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px"></div>
+      <div class="panel" style="position:sticky;bottom:8px;z-index:2">
+        <div class="row"><strong id="stretchActive">Choose a stretch</strong><span class="rest" id="stretchClock">00:30</span></div>
+        <div class="controls"><button class="primary" id="stretchStart">Start</button><button id="stretchPause">Pause</button><button id="stretchReset">Reset</button><button id="stretchDone">Log completed</button></div>
+        <p class="sub" id="stretchProgress" aria-live="polite">Choose a movement to begin.</p>
+      </div>
+      <div class="panel"><strong>Mobility history</strong><p class="sub" id="stretchSummary">No completed stretches yet.</p><button id="stretchExport">Export mobility history (JSON)</button></div>
+    </div>
+  </section>
 
   <div class="food" id="foodView" role="tabpanel" aria-labelledby="tabFood" hidden>
     <section style="display:grid;gap:12px;min-width:0">
@@ -536,6 +553,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=23"></script>
 </body>
 </html>
