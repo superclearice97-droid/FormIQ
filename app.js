@@ -7,6 +7,7 @@ import { initActivity } from "./activity.js?v=24";
 import { initRide } from "./ride.js?v=24";
 import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=24";
 import { evaluate, createGuide } from "./guide.js?v=24";
+import { COACH } from "./coach-data.js?v=24";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");
@@ -54,10 +55,10 @@ function guideStep(r,t){
   if(!$("restPanel").hidden){ guide.reset(); showGuide(null); return false; }
   const e=evaluate(r.img||null, EX[exKey], (video.videoWidth||4)/(video.videoHeight||3), r.postureOk!==false, r.postureHint);
   const g=guide.step(e,t);
-  if(g.say) speak(g.say);
-  if(g.phase==="go"){ tracker.rearm(); goUntil=t+900; showGuide(g); return false; }
+  if(g.say) speak(g.say==="Go!"&&COACH[exKey]?"Go. "+COACH[exKey].cue:g.say);
+  if(g.phase==="go"){ tracker.rearm(); goUntil=t+900; showGuide(g); showCoachLine(0); return false; }
   if(g.phase==="live"){ if(t<goUntil) showGuide({phase:"go",box:g.box}); else showGuide(null); return true; }
-  showGuide(g); return false;
+  $("coachLine").hidden=true; showGuide(g); return false;
 }
 
 /* ---------- UI: exercise picker, how-to and circuits ---------- */
@@ -79,6 +80,13 @@ function renderEx(){
   $("howText").textContent=e.how;
   $("howView").textContent=`Camera: ${e.view} view, whole body in the picture.`+(e.kind==="hold"?" Counts the seconds you hold the pose.":e.kind==="alt"?" Each side counts as one.":"");
   $("targetLbl").textContent=isHold(exKey)?"Seconds per set":"Reps per set";
+  const c=COACH[exKey];
+  $("coachBox").innerHTML=!c?"":`<div class="coach"><h4>Works</h4><div class="musc">${c.muscles.split(", ").map(m=>`<span>${esc(m)}</span>`).join("")}</div>
+    <h4>Step by step</h4><ol>${c.steps.map(t=>`<li>${esc(t)}</li>`).join("")}</ol>
+    <h4>Common mistakes</h4><ul>${c.mistakes.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>
+    <h4>Breathing</h4><p>${esc(c.breath)}</p>
+    <h4>Easier</h4><p>${esc(c.easier)}</p><h4>Harder</h4><p>${esc(c.harder)}</p>
+    <p class="note">General fitness information, not medical advice. Stop if you feel pain, dizziness or chest discomfort.</p></div>`;
 }
 function selectExercise(k,target){
   if(set.reps.length) finishSet(true);
@@ -168,7 +176,16 @@ function renderLive(last){
     ? (cues.length?cues.map(c=>`<li><i class="dot ${last.score>=65?"warn":"bad"}"></i>${c}</li>`).join(""):`<li><i class="dot good"></i>Good rep: full range, ${last.dur}s</li>`)
     : `<li><i class="dot"></i>${isHold(exKey)?"Get into the pose. The timer runs while your form is right.":"Do a rep. Form feedback appears after each one."}</li>`;
   $("endSetBtn").disabled=!n;
+  showCoachLine(n);
 }
+function showCoachLine(n){
+  const el=$("coachLine"), c=COACH[exKey];
+  if(!c||!running||!video.srcObject||(guideOn&&!guide.started)){ el.hidden=true; return; }
+  el.hidden=false;
+  const fault=last_fault();
+  el.textContent=fault?`Watch: ${fault}`:`${isHold(exKey)?"Hold":"Step "+((n%c.steps.length)+1)}: ${c.steps[n%c.steps.length]}`;
+}
+function last_fault(){ const r=set.reps[set.reps.length-1]; return r&&r.faults&&r.faults.length&&r.score<85?r.faults[0]:""; }
 function renderSets(){
   $("saveBtn").disabled=!sets.length;
   if(!sets.length){$("setTableWrap").innerHTML=`<p class="empty">Finished sets show up here with reps, accuracy and the most common fault.</p>`;return;}

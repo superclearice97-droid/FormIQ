@@ -53,6 +53,7 @@ jobs:
       - name: JavaScript syntax validation
         run: |
           node --check guide.js
+          node --check coach-data.js
           node --check exercises.js
           node --check reps.js
           node --check app.js
