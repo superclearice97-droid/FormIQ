@@ -4,6 +4,7 @@ const byId=id=>document.getElementById(id);
 const historyKey="formiq.mobility.v1";
 let kind="dynamic",selected=null,remaining=30,interval=null,deadline=0;
 function stop(){if(interval!==null){clearInterval(interval);interval=null;}}
+function pause(){if(interval!==null){remaining=Math.max(0,Math.ceil((deadline-Date.now())/1000));stop();clock();}}
 function clock(){byId("stretchClock").textContent=String(Math.floor(remaining/60)).padStart(2,"0")+":"+String(remaining%60).padStart(2,"0");}
 function choose(i){stop();selected=i;remaining=movements[i][3];clock();byId("stretchActive").textContent=movements[i][0];byId("stretchProgress").textContent=movements[i][4];render();}
 function tick(){remaining=Math.max(0,Math.ceil((deadline-Date.now())/1000));clock();if(!remaining){stop();byId("stretchProgress").textContent="Timer finished. Log your stretch when complete.";}}
@@ -13,9 +14,10 @@ function summary(){const h=load();const seconds=h.reduce((n,x)=>n+(Number(x.seco
 export function initStretch(){
 byId("stretchDynamic").onclick=()=>{kind="dynamic";render();};byId("stretchStatic").onclick=()=>{kind="static";render();};byId("stretchArea").onchange=render;
 byId("stretchStart").onclick=()=>{if(selected===null)choose(0);if(interval!==null)return;if(remaining<=0)remaining=movements[selected][3];deadline=Date.now()+remaining*1000;interval=setInterval(tick,200);tick();};
-byId("stretchPause").onclick=()=>{if(interval!==null){tick();stop();}};
+byId("stretchPause").onclick=pause;
+document.addEventListener("formiq:camera",e=>{if(e.detail!=="tab-stretch")pause();});
 byId("stretchReset").onclick=()=>{stop();remaining=selected===null?30:movements[selected][3];clock();};
 byId("stretchDone").onclick=()=>{if(selected===null){byId("stretchProgress").textContent="Choose a stretch first.";return;}stop();const h=load();h.push({name:movements[selected][0],type:movements[selected][1],area:movements[selected][2],seconds:movements[selected][3],at:new Date().toISOString()});try{localStorage.setItem(historyKey,JSON.stringify(h.slice(-1000)));byId("stretchProgress").textContent="Saved to this device.";summary();}catch{byId("stretchProgress").textContent="Unable to save: device storage unavailable.";}}
-byId("stretchExport").onclick=()=>{const blob=new Blob([JSON.stringify({schema:1,records:load()},null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="formiq-mobility.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+byId("stretchExport").onclick=async()=>{const data=JSON.stringify({schema:1,records:load()},null,2);if(window.FormIQNative?.saveFile){await window.FormIQNative.saveFile("formiq-mobility.json","application/json",data);return;}const blob=new Blob([data],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="formiq-mobility.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 clock();render();summary();
 }
