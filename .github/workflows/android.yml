@@ -49,6 +49,10 @@ jobs:
           else
             echo "No signing key yet: building as a check only."
           fi
+      - name: JavaScript syntax validation
+        run: |
+          node --check stretch.js
+          node --check app.js
       - name: Build
         working-directory: android
         run: |
