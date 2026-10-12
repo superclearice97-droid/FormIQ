@@ -28,12 +28,20 @@ class OneEuro {
   }
 }
 function smoother(mc = 1.7, beta = 0.8) {
-  let F = null;
+  let F = null, hold = null;
   return {
-    reset() { F = null; },
+    reset() { F = null; hold = null; },
+    /* a landmark whose confidence flickers below the threshold for a few frames keeps its last good position
+       for 100 ms instead of jumping, which would otherwise look like a movement (and double count) */
     f(lm, t) {
-      if (!F || F.length !== lm.length) F = lm.map(() => ({ x: new OneEuro(mc, beta), y: new OneEuro(mc, beta), z: new OneEuro(mc, beta) }));
-      return lm.map((p, i) => ({ x: F[i].x.f(p.x, t), y: F[i].y.f(p.y, t), z: F[i].z.f(p.z, t), visibility: p.visibility }));
+      if (!F || F.length !== lm.length) { F = lm.map(() => ({ x: new OneEuro(mc, beta), y: new OneEuro(mc, beta), z: new OneEuro(mc, beta) })); hold = lm.map(() => ({ t: -1e9, p: null })); }
+      return lm.map((p, i) => {
+        const good = (p.visibility ?? 1) > VIS, H = hold[i];
+        if (!good && H.p && t - H.t < 100) return { ...H.p, visibility: VIS + 0.01 };
+        const o = { x: F[i].x.f(p.x, t), y: F[i].y.f(p.y, t), z: F[i].z.f(p.z, t), visibility: p.visibility };
+        if (good) { H.t = t; H.p = o; }
+        return o;
+      });
     },
   };
 }
@@ -43,7 +51,7 @@ export function createTracker(exKey = "squat") {
   const smImg = smoother(), smW = smoother();
   let def = EX[exKey], key = exKey, st, lostSince = 0;
   const newDet = (lo = null) => ({ phase: "top", lo, hi: 0, startedAt: 0, f: {}, extreme: null, anchor: null });
-  const fresh = (keepT) => ({ mem: {}, cal: {}, ema: null, vert: null, det: newDet(), armSide: null, upSince: 0, T: keepT ?? null,
+  const fresh = (keepT) => ({ hist: [], mem: {}, cal: {}, ema: null, vert: null, det: newDet(), armSide: null, upSince: 0, T: keepT ?? null,
     alt: { center: null, side: 0, peak: 0, since: 0, visits: 0, lastT: 0 }, hold: { held: 0, last: 0, secs: 0, good: 0 } });
   st = fresh();
 
@@ -94,12 +102,12 @@ export function createTracker(exKey = "squat") {
     for (const i of pts) if (seen(img, [i])) p[i] = { x: img[i].x * asp, y: img[i].y };
     const sg = seg.filter(([a, b]) => seen(img, [a, b])).map(([a, b]) => Math.hypot((img[a].x - img[b].x) * asp, img[a].y - img[b].y));
     if (!Object.keys(p).length || !sg.length) return null;
-    return { p, scale: Math.max(...sg) };
+    return { p, scale: sg.reduce((a, b) => a + b, 0) / sg.length };
   }
   function anchorMoved(a0, a1) {
     if (!a0 || !a1 || a0.scale < 0.02) return false;
     const r = a1.scale / a0.scale;
-    if (def.anchor === "feet" && (r < 0.75 || r > 1.33)) return true;   // stepped toward or away from the camera
+    if (def.anchor === "feet" && (r < 0.68 || r > 1.47)) return true;   // stepped toward or away from the camera
     const common = Object.keys(a0.p).filter(k => a1.p[k]);
     if (!common.length) return false;
     return Math.min(...common.map(k => Math.hypot(a1.p[k].x - a0.p[k].x, a1.p[k].y - a0.p[k].y))) > 0.6 * a0.scale;
@@ -107,11 +115,16 @@ export function createTracker(exKey = "squat") {
 
   /* rawImg/rawWorld: landmarks for this frame (or null when nobody is seen). t: ms. asp: width / height. */
   function update(rawImg, rawWorld, t, asp = 4 / 3) {
-    if (!rawImg) {   // tracking lost: start over rather than trust a half-finished movement
+    if (!rawImg) {
+      // a short dropout (a few frames of lost tracking) just pauses the rep; only a real absence starts over
+      if (!st.gapAt) st.gapAt = t;
+      if (t - st.gapAt < 800 && st.det.phase !== undefined && st.seen) return { state: "hold" };
       resetSmoothing(); st.det = newDet(); st.upSince = 0; st.badSince = 0; st.vert = null; st.ema = null;
       st.alt.side = 0; st.alt.since = 0; st.hold.last = 0;
+      st.seen = false;
       return { state: "noperson" };
     }
+    st.gapAt = 0; st.seen = true;
     const img = smImg.f(rawImg, t), world = rawWorld ? smW.f(rawWorld, t) : null;
     const T = torso(img, asp);
     const g = geometry(img, world, asp, T);
@@ -165,6 +178,10 @@ export function createTracker(exKey = "squat") {
       return { ...common, state: t - lostSince > 600 ? "lost" : "hold" };
     }
     lostSince = 0;
+    // median of the last three readings: a single bad frame (a model glitch) can't move the count. Only used when
+    // those frames are close together (about 15 fps or better); at lower rates it would clip real peaks.
+    const hist = st.hist || (st.hist = []); hist.push([t, v]); if (hist.length > 3) hist.shift();
+    if (hist.length === 3 && hist[2][0] - hist[0][0] < 170) v = hist.map(h => h[1]).sort((a, b) => a - b)[1];
     st.ema = st.ema == null ? v : st.ema * 0.35 + v * 0.65;
     const val = st.ema;
     if (def.kind === "alt") return altStep(val, t, postureOk, ready, vert, common);
@@ -173,7 +190,7 @@ export function createTracker(exKey = "squat") {
     const sign = def.dir === "down" ? -1 : 1, s = sign * val;   // s rises during a rep
     const m = { ...def.extra(ctx(side)), side };
     const anchor = anchorOf(img, asp);
-    let done = null, cancel = null;
+    let done = null, cancel = null, skip = null;
     if (det.phase === "top") {
       if (!postureOk) det.lo = null;
       else {
@@ -194,7 +211,7 @@ export function createTracker(exKey = "squat") {
       def.track(det.f, m, det.phase);
       const exc = det.hi - det.lo;
       if (P.lost(vert) || anchorMoved(det.anchor, anchor)) cancel = true;
-      else if (det.phase === "moving" && s - det.lo < def.travel * 0.15) cancel = true;      // went back without a real rep
+      else if (det.phase === "moving" && s - det.lo < def.travel * 0.15) { cancel = true; if (det.hi - det.lo >= def.travel * 0.55) skip = "Almost, go a little further so it counts"; }      // went back without a real rep
       else if (det.phase === "bottom" && det.hi - s >= Math.max(exc * 0.45, def.travel * 0.6)) {
         if (t - det.startedAt >= (def.minDur ?? 180)) done = swingScore(det, t);
         st.det = newDet(s); st.armSide = null;
@@ -206,7 +223,7 @@ export function createTracker(exKey = "squat") {
       ...common, state: postureOk || d.phase !== "top" ? "ok" : "posture", hint: postureOk ? null : P.hint,
       phase: !ready && d.phase === "top" ? "calibrating" : d.phase, value: val, side,
       label: def.show === "depth" ? `Depth ${Math.round(Math.min(1, val / 0.5) * 100)}%` : fmt(val),
-      prog: Math.max(0, Math.min(1, live / def.full)), rep: done,
+      prog: Math.max(0, Math.min(1, live / def.full)), rep: done, skip,
     };
   }
 

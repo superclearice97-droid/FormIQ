@@ -197,6 +197,7 @@ function analyze(r){
   if(r.state==="lost"){ setPhase("Not in frame"); hud([[fps+" fps",""],[r.framing||(def.view==="side"?"Turn so your side faces the camera":"Make sure your whole body is in view"),"warn"]]); return; }
   if(r.state==="posture"){ $("romBar").style.width="0%"; setPhase("Waiting"); hud([[r.hint,"warn"],[fps+" fps",fps&&fps<10?"warn":""]].concat(r.framing?[[r.framing,"warn"]]:[])); return; }
   if(r.rep) countRep(r.rep);
+  else if(r.skip&&video.srcObject){ const el=$("coachLine"); el.hidden=false; el.textContent=r.skip; }
   $("romBar").style.width=r.prog*100+"%";
   setPhase(r.phase==="calibrating"?"Get set…":r.phase==="holding"?"Holding":def.kind==="hold"?"Get into the pose":r.phase==="top"?"Ready":r.phase==="bottom"?"Return":"Moving");
   hud([[r.label,""]].concat(r.hint?[[r.hint,"warn"]]:[]).concat([[r.quality>0.75?"Tracking good":"Tracking weak",r.quality>0.75?"good":"warn"],[fps+" fps",fps&&fps<10?"warn":""]]).concat(r.framing?[[r.framing,"warn"]]:[]));
@@ -326,7 +327,7 @@ function draw(lm){
   [11,12,13,14,15,16,23,24,25,26,27,28].forEach(i=>{if((lm[i].visibility??1)<VIS)return;ctx.beginPath();ctx.arc(lm[i].x*W,lm[i].y*H,ctx.lineWidth*1.2,0,7);ctx.fill();});
 }
 
-function loop(){
+function loop(_now,meta){
   if(!running) return;
   if(video.readyState>=2 && video.currentTime!==lastTs){
     lastTs=video.currentTime;
@@ -341,7 +342,9 @@ function loop(){
     poseLatencyPeakMs=Math.max(poseLatencyPeakMs,latency);
     poseSamples++;
     fpsN++; if(t-fpsT>1000){fps=Math.round(fpsN*1000/(t-fpsT));fpsN=0;fpsT=t;}
-    const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?t:video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
+    // the camera's own capture time keeps the spacing between frames steady even when inference time varies
+    const capT=meta&&(meta.captureTime||meta.presentationTime);
+    const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?(capT>0&&Math.abs(capT-t)<1000?capT:t):video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
     draw(r.img||null); autoFrameStep(r,t);
     if(guideStep(r,t)) analyze(r);
     else { setPhase(guide.started?"Go":"Getting ready"); hud([[fps+" fps",fps&&fps<10?"warn":""]]); $("romBar").style.width="0%"; }
@@ -349,7 +352,7 @@ function loop(){
   schedule();
 }
 window.FormIQTrackingDiagnostics=()=>({fps,meanInferenceMs:Number(poseLatencyMs.toFixed(1)),peakInferenceMs:Number(poseLatencyPeakMs.toFixed(1)),samples:poseSamples,model:modelKey});
-function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback(()=>loop()); else requestAnimationFrame(loop); }
+function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback((n,m)=>loop(n,m)); else requestAnimationFrame(loop); }
 
 /* ---------- consent (shown once per browser, again if the terms version changes) ---------- */
 const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-10";
