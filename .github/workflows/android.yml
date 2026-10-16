@@ -61,6 +61,8 @@ jobs:
           node --check exercises.js
           node --check reps.js
           node --check app.js
+          node --check ride.js
+          node --check runtrack.js
       - name: Build
         working-directory: android
         run: |
