@@ -335,6 +335,7 @@ class MainActivity : AppCompatActivity() {
                 "hcStatus" -> health.status()
                 "hcConnect" -> health.connect()
                 "hcRead" -> health.read(a.optInt("days", 30))
+                "hcStepsSince" -> health.stepsSince(a.getLong("since"))
                 "hcWrite" -> { health.write(a); null }
                 "hcDisconnect" -> { health.disconnect(); health.status() }
                 "stravaFetch" -> Net.strava(a)

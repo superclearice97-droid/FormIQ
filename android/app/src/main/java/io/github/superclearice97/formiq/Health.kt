@@ -10,6 +10,7 @@ import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Length
@@ -85,6 +86,14 @@ class Health(private val act: MainActivity) {
             }
         }
         return JSONObject().put("steps", steps).put("sessions", sessions)
+    }
+
+    /** Steps other apps (a watch, a phone, a fitness app) have saved since a moment, for keeping a runner on screen in step. */
+    suspend fun stepsSince(ms: Long): JSONObject {
+        val c = client()
+        if (readSteps !in c.permissionController.getGrantedPermissions()) return JSONObject().put("steps", JSONObject.NULL)
+        val res = c.aggregate(AggregateRequest(metrics = setOf(StepsRecord.COUNT_TOTAL), timeRangeFilter = TimeRangeFilter.between(Instant.ofEpochMilli(ms), Instant.now())))
+        return JSONObject().put("steps", res[StepsRecord.COUNT_TOTAL] ?: 0L).put("at", System.currentTimeMillis())
     }
 
     suspend fun write(a: JSONObject) {

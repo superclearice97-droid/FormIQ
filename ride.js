@@ -4,7 +4,8 @@
    beat-to-beat data). Bikes: optional hill simulation and ERG mode over FTMS. Treadmills: FormIQ never changes
    belt speed; incline follows the route only if the rider turns that on. Everything stays on this device. */
 import "./secure.js?v=28";
-import { parseFTMS, logWorkout, stravaReady, stravaUploadTcx, saveFile } from "./activity.js?v=28";
+import { parseFTMS, logWorkout, stravaReady, stravaUploadTcx, saveFile, StepDetector } from "./activity.js?v=28";
+import { CameraStepDetector, StepRate, StepQueue, kmhFrom } from "./runtrack.js?v=28";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -18,7 +19,7 @@ const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd",
 
 /* ---------- settings & progress ---------- */
 const SET_KEY = "formiq.ride.settings.v1", PROG_KEY = "formiq.ride.progress.v1", RIDES_KEY = "formiq.rides.v1";
-const DEF = { weight: 75, age: 35, maxHr: 0, ftp: 0, easyKmh: 8, difficulty: 50, control: true, autoIncline: false, maxIncline: 8, voice: true, units: "metric", footCal: 100, raceDist: 5000 };
+const DEF = { weight: 75, age: 35, maxHr: 0, ftp: 0, easyKmh: 8, difficulty: 50, control: true, autoIncline: false, maxIncline: 8, voice: true, units: "metric", height: 170, stepCal: 100, raceDist: 5000 };
 /* units: pace, speed and distance in kilometres or miles */
 const MI = 1609.344, imp = () => cfg.units === "imperial";
 const uLen = () => imp() ? MI : 1000, uName = () => imp() ? "mi" : "km";
@@ -138,25 +139,25 @@ export class BreathEstimator {
 }
 
 /* ---------- devices: FTMS machine, heart-rate strap, demo ---------- */
-const inp = { power: null, rpm: null, kmh: null, hr: null, kcal: null, incline: null, at: 0, hrAt: 0, rrAt: 0, footKmh: null, footSpm: null, footW: null, footAt: 0, footWAt: 0 };
-const dev = { machine: null, kind: null, hrDev: null, foot: null, control: null, feat: { power: false, incline: false, sim: false }, demo: null, q: Promise.resolve() };
+const inp = { power: null, rpm: null, kmh: null, hr: null, kcal: null, incline: null, at: 0, hrAt: 0, rrAt: 0 };
+const dev = { machine: null, kind: null, hrDev: null, control: null, feat: { power: false, incline: false, sim: false }, demo: null, q: Promise.resolve() };
 const breath = new BreathEstimator();
-const footOk = () => !!dev.foot && performance.now() - inp.footAt < 5000;
-/* what the runner is doing right now: a foot pod wins over the treadmill's own numbers, like most running apps */
-function runNow() {
+/* what the runner is doing right now: a connected treadmill's belt speed wins; otherwise your steps set the pace */
+function runNow(dt = 0) {
   const now = performance.now(), fresh = now - inp.at < 5000;
-  if (footOk()) return { kmh: inp.footKmh || 0, spm: inp.footSpm || (fresh ? inp.rpm : null), watts: now - inp.footWAt < 5000 ? inp.footW : null, src: "foot" };
-  return { kmh: fresh && inp.kmh != null ? inp.kmh : 0, spm: fresh ? inp.rpm : null, watts: null, src: dev.demo ? "demo" : "treadmill" };
+  if ((dev.machine || dev.demo) && fresh && inp.kmh != null) return { kmh: inp.kmh, spm: inp.rpm || (track.src ? stepSpm(dt) || null : null), watts: null, src: dev.demo ? "demo" : "treadmill" };
+  if (track.src) { const spm = stepSpm(dt); return { kmh: kmhFrom(spm, cfg.height, cfg.stepCal), spm: spm || null, watts: null, src: track.src }; }
+  return { kmh: 0, spm: null, watts: null, src: null };
 }
 function chip() {
   const parts = [];
   if (dev.demo) parts.push(`<span class="pill gd">Demo ${dev.kind === "run" ? "treadmill" : "bike"}</span>`);
   if (dev.machine) parts.push(`<span class="pill gd">${esc(dev.machine.name || "Machine")} · ${dev.kind === "run" ? "treadmill" : "bike"}${dev.control ? " · control on" : ""}</span>`);
-  if (dev.foot) parts.push(`<span class="pill gd">${esc(dev.foot.name || "Foot pod")} · foot pod${dev.footPower ? " · power" : ""}</span>`);
+  if (track.src) parts.push(`<span class="pill gd">${SRC_NAME[track.src]} · tracking your steps</span>`);
   if (dev.hrDev) parts.push(`<span class="pill gd">${esc(dev.hrDev.name || "Heart-rate strap")}</span>`);
   $("rideDevices").innerHTML = parts.join(" ") || `<span class="muted">Nothing connected yet.</span>`;
-  $("rideStart").disabled = !(dev.machine || dev.demo || dev.foot);
-  $("rideKindNote").textContent = dev.foot && dev.kind === "run" ? "Run mode: pace and cadence come from your foot pod, so any treadmill works." :
+  $("rideStart").disabled = !(dev.machine || dev.demo || track.src);
+  $("rideKindNote").textContent = track.src && !dev.machine ? "Run mode: your steps set your runner's pace and stride. Set your height under About you so the speed is right." :
     dev.machine || dev.demo ? (dev.kind === "run" ? "Treadmill mode: pace, incline and steps." : "Bike mode: power, cadence and virtual hills.") : "";
   renderWorkoutChoices();
 }
@@ -205,48 +206,97 @@ async function connectHr() {
     await ch.startNotifications(); dev.hrDev = d; chip(); msg("Heart-rate strap connected. Breathing rate appears after about a minute of data.");
   } catch (e) { if (e.name !== "NotFoundError") msg(e.message || "Couldn't connect.", true); }
 }
-/* Running foot pods: the standard Bluetooth Running Speed and Cadence service. Pods that also measure running
-   power (for example Stryd) share it over the Cycling Power service, which FormIQ reads when it's there. */
-export function parseRSC(dv) {
-  const f = dv.getUint8(0); let o = 1;
-  const mps = dv.getUint16(o, true) / 256; o += 2;
-  const cadence = dv.getUint8(o); o += 1;
-  let stride = null, total = null;
-  if (f & 1) { stride = dv.getUint16(o, true) / 100; o += 2; }
-  if (f & 2) { total = dv.getUint32(o, true) / 10; o += 4; }
-  return { kmh: mps * 3.6, cadence, stride, total, running: !!(f & 4) };
-}
-export function footSpm(cadence, kmh) {          // some pods count strides (one foot), most count steps (both feet)
-  if (!cadence) return null;
-  return cadence < (kmh > 6.5 ? 120 : 75) ? cadence * 2 : cadence;
-}
-function onFoot(r) {
-  const now = performance.now(), k = r.kmh * (+cfg.footCal || 100) / 100, recent = inp.footKmh != null && now - inp.footAt < 3000;
-  let v = recent ? inp.footKmh * 0.6 + k * 0.4 : k;               // pods are jumpy: smooth over ~3 readings
-  if (k < 0.3 && v < 1) v = 0;
-  inp.footKmh = v; inp.footSpm = footSpm(r.cadence, v); inp.footAt = now;
-}
-async function connectFoot() {
-  if (!navigator.bluetooth) return btNeeded();
+/* ---------- no gear needed: run tracking from the camera, the phone's motion sensor or a fitness app ---------- */
+const track = { src: null, rate: new StepRate(), cam: null, stream: null, video: null, lm: null, lmBusy: false, phone: null, queue: null, hcTimer: null, since: 0, seen: 0, show: "none" };
+const nowS = () => performance.now() / 1000;
+const SRC_NAME = { camera: "Camera", phone: "Phone steps", health: "Fitness app" };
+async function useSource(src) {
+  stopSource(); stopDemo();
   try {
-    const d = await navigator.bluetooth.requestDevice({ filters: [{ services: [0x1814] }], optionalServices: [0x1818] });
-    msg(`Connecting to ${d.name || "foot pod"}…`);
-    const server = await d.gatt.connect();
-    const ch = await (await server.getPrimaryService(0x1814)).getCharacteristic(0x2a53);
-    ch.addEventListener("characteristicvaluechanged", e => onFoot(parseRSC(e.target.value)));
-    d.addEventListener("gattserverdisconnected", () => { dev.foot = null; dev.footPower = false; if (!dev.machine && !dev.demo) dev.kind = null; chip(); msg("Foot pod disconnected.", true); });
-    await ch.startNotifications();
-    dev.footPower = false;
-    try {
-      const pc = await (await server.getPrimaryService(0x1818)).getCharacteristic(0x2a63);
-      pc.addEventListener("characteristicvaluechanged", e => { inp.footW = Math.max(0, e.target.value.getInt16(2, true)); inp.footWAt = performance.now(); });
-      await pc.startNotifications(); dev.footPower = true;
-    } catch {}
-    dev.foot = d;
-    if (dev.machine && dev.kind === "bike") msg("Foot pod connected. It's only used for runs, so it stays idle while a bike is connected.");
-    else { stopDemo(); dev.kind = "run"; msg(`Foot pod connected. Clip it to your shoe laces and start running on any treadmill.${dev.footPower ? " Running power is on too." : ""}`); }
+    if (src === "camera") await startCam();
+    else if (src === "phone") await startPhone();
+    else if (src === "health") await startHealth();
+    track.src = src; if (!(dev.machine && dev.kind === "bike")) dev.kind = "run";
     chip(); renderRoutes();
-  } catch (e) { if (e.name !== "NotFoundError") msg(e.message || "Couldn't connect.", true); }
+  } catch (e) { stopSource(); msg(e.message || "Couldn't start that.", true); }
+}
+function stopSource() {
+  if (track.stream) { track.stream.getTracks().forEach(t => t.stop()); track.stream = null; }
+  if (track.video) { track.video.srcObject = null; }
+  if (track.phone) { window.removeEventListener("devicemotion", track.phone); track.phone = null; }
+  if (track.hcTimer) { clearInterval(track.hcTimer); track.hcTimer = null; }
+  track.src = null; track.rate = new StepRate(); track.queue = null; track.cam = null; track.show = "none";
+  const pv = $("ridePreview"); if (pv) pv.hidden = true;
+  if (!dev.machine && !dev.demo) dev.kind = null;
+}
+/* camera: the person runs on a treadmill (or on the spot) in view of the camera */
+async function startCam() {
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser can't use the camera.");
+  document.dispatchEvent(new CustomEvent("formiq:camera", { detail: "ride" }));
+  msg("Starting the camera and loading body tracking…");
+  track.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }, audio: false });
+  const v = $("ridePreviewVideo"); v.srcObject = track.stream; v.muted = true; v.playsInline = true; await v.play(); track.video = v;
+  $("ridePreview").hidden = false;
+  if (!track.lm && !track.lmBusy) {
+    track.lmBusy = true;
+    try {
+      const { PoseLandmarker, FilesetResolver } = await import("./vendor/mediapipe/vision_bundle.mjs");
+      const files = await FilesetResolver.forVisionTasks(new URL("vendor/mediapipe/wasm", location.href).href);
+      const opts = d => ({ baseOptions: { modelAssetPath: new URL("vendor/models/pose_landmarker_lite.task", location.href).href, delegate: d }, runningMode: "VIDEO", numPoses: 1,
+        minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.4, minTrackingConfidence: 0.4 });
+      try { track.lm = await PoseLandmarker.createFromOptions(files, opts("GPU")); } catch { track.lm = await PoseLandmarker.createFromOptions(files, opts("CPU")); }
+    } finally { track.lmBusy = false; }
+  }
+  track.cam = new CameraStepDetector((n, t) => track.rate.add(n, t));
+  let lastT = -1;
+  const loop = () => {
+    if (track.src !== "camera" && !track.cam || !track.video?.srcObject) return;
+    const vv = track.video;
+    if (vv.readyState >= 2 && vv.currentTime !== lastT) {
+      lastT = vv.currentTime;
+      try { const r = track.lm.detectForVideo(vv, performance.now()); track.show = track.cam.push(r.landmarks?.[0], nowS()); drawPreview(r.landmarks?.[0]); } catch {}
+      if (track.show !== "none") track.seen = nowS();
+      const lab = $("ridePreviewLabel"), spm = Math.round(track.rate.spm(nowS()));
+      if (lab) lab.textContent = nowS() - track.seen > 2 ? "Can't see you. Step back so your body is in view." :
+        `${{ legs: "Watching your feet", arms: "Watching your arms", bounce: "Watching your bounce" }[track.show] || "Looking for you"}${spm ? ` · ${spm} steps/min` : ""}`;
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+  msg("Camera on. Stand so the camera sees you from head to feet (front or side), then start running. Only your top half in view works too.");
+}
+const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+function drawPreview(lm) {
+  const c = $("ridePreviewCanvas"), v = track.video; if (!c || !v) return;
+  if (c.width !== v.videoWidth) { c.width = v.videoWidth; c.height = v.videoHeight; }
+  const g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height); if (!lm) return;
+  g.lineWidth = Math.max(2, c.width / 120); g.strokeStyle = "rgba(60,207,142,.95)"; g.lineCap = "round";
+  for (const [a, b] of BONES) { if ((lm[a].visibility ?? 1) < .5 || (lm[b].visibility ?? 1) < .5) continue; g.beginPath(); g.moveTo(lm[a].x * c.width, lm[a].y * c.height); g.lineTo(lm[b].x * c.width, lm[b].y * c.height); g.stroke(); }
+}
+/* phone in a pocket or armband: the motion sensor counts steps */
+async function startPhone() {
+  if (typeof DeviceMotionEvent === "undefined") throw new Error("This device has no motion sensor. Use the camera or a fitness app instead.");
+  if (typeof DeviceMotionEvent.requestPermission === "function" && await DeviceMotionEvent.requestPermission() !== "granted") throw new Error("Motion access was denied.");
+  const det = new StepDetector(n => track.rate.add(n, nowS()));
+  let got = false;
+  track.phone = e => { const a = e.accelerationIncludingGravity; if (!a || a.x == null) return; got = true; det.push(a.x, a.y, a.z, e.timeStamp || performance.now()); };
+  window.addEventListener("devicemotion", track.phone);
+  setTimeout(() => { if (track.src === "phone" && !got) msg("No motion data from this device. On a computer, use the camera instead.", true); }, 2500);
+  msg("Phone steps on. Put the phone in a pocket or armband and keep FormIQ open. Cast or mirror the screen to a TV to watch your runner.");
+}
+/* fitness app: steps your watch, phone or fitness app saves to Health Connect (Android app) */
+async function startHealth() {
+  const N = window.FormIQNative; if (!N?.call) throw new Error("Fitness app steps come through Health Connect in the FormIQ Android app.");
+  const st = await N.call("hcStatus"); if (!st?.connected) { const r = await N.call("hcConnect"); if (!r?.connected) throw new Error("Health Connect wasn't connected."); }
+  track.since = Date.now(); track.queue = new StepQueue();
+  const poll = async () => { try { const r = await N.call("hcStepsSince", { since: track.since }); if (r && r.steps != null) { track.queue.report(+r.steps, nowS()); track.seen = nowS(); } } catch {} };
+  await poll(); track.hcTimer = setInterval(poll, 10000);
+  msg("Fitness app on. Your runner moves with the steps your watch or phone saves to Health Connect. Watches often sync every few minutes, so the runner may lag behind you and then catch up.");
+}
+/* the live step picture: steps per minute right now from whichever source is on */
+function stepSpm(dt) {
+  if (track.src === "health" && track.queue) return track.queue.tick(dt);
+  return track.rate.spm(nowS());
 }
 export function parseHr(dv) {
   const f = dv.getUint8(0); let o = 1; const hr = f & 1 ? dv.getUint16(o, true) : dv.getUint8(o); o += f & 1 ? 2 : 1;
@@ -262,7 +312,7 @@ function onData(d) {
 }
 /* demo machine for trying FormIQ Ride without equipment (clearly labelled) */
 function startDemo(kind) {
-  stopDemo(); dev.kind = kind; let t = 0, hr = 92, beat = 0;
+  stopDemo(); stopSource(); dev.kind = kind; let t = 0, hr = 92, beat = 0;
   dev.demo = setInterval(() => {
     const s = window.__rideScale || 1;
     for (let k = 0; k < s; k++) {
@@ -380,6 +430,7 @@ function startRide() {
     .filter(([m]) => m < raceLen * 0.9);
   if (race) { cfg.raceDist = raceLen; save(SET_KEY, cfg); }
   $("rideSetup").hidden = true; $("rideSummary").hidden = true; $("rideLive").hidden = false; $("hudResult").hidden = true;
+  $("rideStage").appendChild($("ridePreview"));                    // the camera view rides along in a corner of the screen
   $("hudRace").hidden = !race; $("hudCount").hidden = !race;
   if (live.kind === "run" && cfg.autoIncline && dev.feat.incline && dev.control) msg("Auto-incline is on. Your treadmill's speed is never changed by FormIQ.");
   try { navigator.wakeLock?.request("screen").then(w => live && (live.wake = w)).catch(() => {}); } catch {}
@@ -402,7 +453,7 @@ function tick() {
     else $("hudCount").textContent = after;
     hud(); return;
   }
-  const fresh = now - inp.at < 5000, grade = segAt(L.R, L.d).grade, run = L.kind === "run" ? runNow() : null;
+  const fresh = now - inp.at < 5000, grade = segAt(L.R, L.d).grade, run = L.kind === "run" ? runNow(dt) : null;
   // workout targets
   let step = null;
   if (L.wo && L.woT < L.woSecs) {
@@ -783,6 +834,7 @@ function chartSvg(samples, key, color, label) {
   return `<figure class="rchart"><figcaption>${label} <span>${min}–${max}</span></figcaption><svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" role="img" aria-label="${label} over time"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></figure>`;
 }
 function showSummary(r, xp, levelUp, badges) {
+  $("ridePreviewHome")?.appendChild($("ridePreview"));
   $("rideLive").hidden = true; $("rideSummary").hidden = false; $("rideSetup").hidden = true;
   const lv = levelOf(prog.xp), b = BADGES.filter(x => badges.includes(x[0]));
   $("rideSumBody").innerHTML = `
@@ -821,7 +873,7 @@ function splitsBlock(r) {
   return `<div class="label" style="margin-top:12px">Splits per ${r.splitUnit}</div><ul class="splits">${r.splits.map((t, i) =>
     `<li${t === fast && r.splits.length > 1 ? ' class="best"' : ""}><span>${i + 1}</span><i style="width:${Math.round(40 + 60 * (slow - t) / Math.max(1, slow - fast))}%"></i><b>${hms(t)}</b></li>`).join("")}</ul>`;
 }
-function showSetup() { $("rideLive").hidden = true; $("rideSummary").hidden = true; $("rideSetup").hidden = false; renderRoutes(); renderProgress(); }
+function showSetup() { $("ridePreviewHome")?.appendChild($("ridePreview")); $("rideLive").hidden = true; $("rideSummary").hidden = true; $("rideSetup").hidden = false; renderRoutes(); renderProgress(); }
 
 /* ---------- setup screen ---------- */
 function renderRoutes() {
@@ -852,12 +904,15 @@ function renderProgress() {
 function renderSettings() {
   if ($("rs_units")) $("rs_units").value = cfg.units;
   if (cfg.raceDist && [...$("rideRaceDist").options].some(o => +o.value === +cfg.raceDist)) $("rideRaceDist").value = cfg.raceDist;
-  for (const k of ["weight", "age", "maxHr", "ftp", "easyKmh", "difficulty", "maxIncline", "footCal"]) { const el = $("rs_" + k); if (el) el.value = cfg[k] || ""; }
+  for (const k of ["weight", "age", "maxHr", "ftp", "easyKmh", "difficulty", "maxIncline", "height", "stepCal"]) { const el = $("rs_" + k); if (el) el.value = cfg[k] || ""; }
   for (const k of ["control", "autoIncline", "voice"]) { const el = $("rs_" + k); if (el) el.checked = !!cfg[k]; }
   $("rs_hint").textContent = `Using max heart rate ${maxHr()} bpm and FTP ${ftp()} W${cfg.ftp ? "" : " (estimated)"}.`;
 }
 export function initRide() {
-  $("rideMachine").onclick = connectMachine; $("rideHr").onclick = connectHr; $("rideFoot").onclick = connectFoot;
+  $("rideMachine").onclick = connectMachine; $("rideHr").onclick = connectHr; 
+  $("rideCam").onclick = () => useSource("camera"); $("ridePhone").onclick = () => useSource("phone"); $("rideHealth").onclick = () => useSource("health");
+  $("rideHealth").hidden = !window.FormIQNative?.call;
+  document.addEventListener("formiq:camera", e => { if (e.detail !== "ride" && e.detail !== "tab-ride" && track.src === "camera" && !live) { stopSource(); chip(); } });
   $("rideDemoBike").onclick = () => { startDemo("bike"); renderRoutes(); }; $("rideDemoRun").onclick = () => { startDemo("run"); renderRoutes(); };
   $("rideMode").onchange = renderWorkoutChoices;
   $("rideStart").onclick = startRide;
@@ -871,7 +926,7 @@ export function initRide() {
   $("rideFull").onclick = () => { const el = $("rideStage"); (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.())?.catch?.(() => {}); };
   $("rideSettings").addEventListener("change", e => {
     const el = e.target, k = el.id.replace("rs_", ""); if (!(k in DEF)) return;
-    cfg[k] = el.type === "checkbox" ? el.checked : el.tagName === "SELECT" ? el.value : el.value === "" ? (k === "footCal" ? 100 : 0) : +el.value;
+    cfg[k] = el.type === "checkbox" ? el.checked : el.tagName === "SELECT" ? el.value : el.value === "" ? (k === "stepCal" ? 100 : k === "height" ? 170 : 0) : +el.value;
     if (k === "autoIncline" && el.checked) msg("Auto-incline changes your treadmill's incline to match the route. FormIQ never changes the belt speed. Keep the safety clip attached.");
     save(SET_KEY, cfg); renderSettings();
   });

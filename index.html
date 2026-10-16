@@ -194,6 +194,10 @@ details{margin-top:10px}details summary{cursor:pointer;font-weight:600;font-size
 .splits{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;font-size:13px}.splits li{display:grid;grid-template-columns:2em 1fr 4.5em;align-items:center;gap:8px}
 .splits li i{display:block;height:8px;border-radius:4px;background:var(--accent);opacity:.55}.splits li b{text-align:right;font-variant-numeric:tabular-nums}
 .splits li.best i{opacity:1}.splits li.best b{color:var(--accent)}
+.ridepreview{position:relative;width:min(100%,240px);aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#000;margin-top:8px}
+.ridepreview video,.ridepreview canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.ridepreview span{position:absolute;left:0;right:0;bottom:0;padding:3px 6px;font-size:11px;color:#fff;background:rgba(0,0,0,.55)}
+#rideStage .ridepreview{position:absolute;left:10px;bottom:10px;width:min(24%,200px);margin:0;border:2px solid rgba(255,255,255,.7)}
 .hudbtns{position:absolute;right:10px;bottom:10px}.hudbtns button{background:rgba(8,12,10,.55);color:#fff;border:0;font-size:18px;padding:6px 10px}
 .hudgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
 @media (max-width:560px){.hudgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -370,13 +374,21 @@ footer a{color:var(--muted)}
           <div class="controls">
             <button class="primary" id="rideMachine">Connect bike or treadmill</button>
             <button id="rideHr">Connect heart-rate strap</button>
-            <button id="rideFoot">Connect foot pod</button>
           </div>
+          <div class="label" style="margin-top:6px">No smart treadmill? Track your running with</div>
+          <div class="controls">
+            <button id="rideCam">Camera</button>
+            <button id="ridePhone">Phone in pocket</button>
+            <button id="rideHealth" hidden>Fitness app</button>
+          </div>
+          <div id="ridePreviewHome"><div class="ridepreview" id="ridePreview" hidden>
+            <video id="ridePreviewVideo" playsinline muted></video><canvas id="ridePreviewCanvas"></canvas><span id="ridePreviewLabel">Looking for you</span>
+          </div></div>
           <div class="controls"><button id="rideDemoBike">Try demo bike</button><button id="rideDemoRun">Try demo treadmill</button></div>
           <div id="rideDevices"></div>
           <p class="muted" id="rideKindNote"></p>
           <p class="muted">Works with FitShow and other smart treadmills, bikes and trainers that use the standard Bluetooth fitness-machine protocol. Breathing rate needs a chest strap that sends beat-to-beat data (for example Polar H10, Garmin HRM, Wahoo TICKR).</p>
-          <p class="muted">No smart treadmill? Clip a Bluetooth running foot pod to your shoe (for example Stryd or Polar Stride) and run on any treadmill. Pods that measure running power show it too.</p>
+          <p class="muted">Camera: set your phone or laptop where it can see you on the treadmill (or running on the spot) and your runner copies your steps. Phone in pocket: the phone's motion sensor counts your steps. Fitness app: in the Android app, steps from your watch or fitness app arrive through Health Connect. Nothing leaves this device.</p>
         </div>
         <div class="panel">
           <div class="label">2 · Choose a route</div>
@@ -415,9 +427,10 @@ footer a{color:var(--muted)}
             <label class="field" for="rs_easyKmh">Comfortable treadmill speed (km/h) <input id="rs_easyKmh" type="number" min="2" max="20" step="0.5"></label>
             <label class="field" for="rs_difficulty">Hill feel on bikes (%) <input id="rs_difficulty" type="number" min="0" max="100" step="10"></label>
             <label class="field" for="rs_units">Units <select id="rs_units"><option value="metric">Kilometres</option><option value="imperial">Miles</option></select></label>
-            <label class="field" for="rs_footCal">Foot pod calibration (%) <input id="rs_footCal" type="number" min="80" max="120" step="0.5"></label>
+            <label class="field" for="rs_height">Height (cm) <input id="rs_height" type="number" min="120" max="220"></label>
+            <label class="field" for="rs_stepCal">Step pace calibration (%) <input id="rs_stepCal" type="number" min="70" max="130" step="1"></label>
           </div>
-          <p class="muted">If the foot pod's pace doesn't match your treadmill, set calibration to treadmill speed ÷ FormIQ speed × 100 (for example 10.0 ÷ 9.6 × 100 = 104).</p>
+          <p class="muted">When FormIQ tracks your steps, speed comes from your cadence and height. If it doesn't match your treadmill, set calibration to treadmill speed ÷ FormIQ speed × 100 (for example 10.0 ÷ 9.6 × 100 = 104).</p>
           <p class="muted" id="rs_hint"></p>
           <label class="check" for="rs_control"><input type="checkbox" id="rs_control"> Let FormIQ set my bike's resistance for hills and workouts</label>
           <label class="check" for="rs_autoIncline"><input type="checkbox" id="rs_autoIncline"> Treadmill auto-incline to match the route (never changes speed)</label>
