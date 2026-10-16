@@ -2,8 +2,8 @@
    It plays the same pose keyframes (demos.js), so every exercise has a 3D demo. You can drag it sideways to walk around it.
    Cel-shaded (toon) with an ink outline to keep the anime look. If WebGL isn't available it quietly falls back to the 2D coach.
    Scene units are the 2D coach's units (about 1 unit = 1 cm of a cartoon person); x right, y up, z toward the viewer. */
-import * as B from "./buddy.js?v=27";
-import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS } from "./looks.js?v=27";
+import * as B from "./buddy.js?v=28";
+import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS } from "./looks.js?v=28";
 
 let T = null;
 try { T = await import("./vendor/three/three.module.min.js"); } catch { T = null; }

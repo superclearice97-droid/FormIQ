@@ -3,8 +3,8 @@
    Live power, cadence, speed/pace, heart rate (with zones) and breathing rate (estimated from a chest strap's
    beat-to-beat data). Bikes: optional hill simulation and ERG mode over FTMS. Treadmills: FormIQ never changes
    belt speed; incline follows the route only if the rider turns that on. Everything stays on this device. */
-import "./secure.js?v=27";
-import { parseFTMS, logWorkout, stravaReady, stravaUploadTcx, saveFile } from "./activity.js?v=27";
+import "./secure.js?v=28";
+import { parseFTMS, logWorkout, stravaReady, stravaUploadTcx, saveFile } from "./activity.js?v=28";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -14,10 +14,17 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pad = n => String(n).padStart(2, "0");
 const hms = s => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
 const pace = kmh => kmh > 0.5 ? hms(3600 / kmh) : "–";
+const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
 
 /* ---------- settings & progress ---------- */
 const SET_KEY = "formiq.ride.settings.v1", PROG_KEY = "formiq.ride.progress.v1", RIDES_KEY = "formiq.rides.v1";
-const DEF = { weight: 75, age: 35, maxHr: 0, ftp: 0, easyKmh: 8, difficulty: 50, control: true, autoIncline: false, maxIncline: 8, voice: true };
+const DEF = { weight: 75, age: 35, maxHr: 0, ftp: 0, easyKmh: 8, difficulty: 50, control: true, autoIncline: false, maxIncline: 8, voice: true, units: "metric", footCal: 100, raceDist: 5000 };
+/* units: pace, speed and distance in kilometres or miles */
+const MI = 1609.344, imp = () => cfg.units === "imperial";
+const uLen = () => imp() ? MI : 1000, uName = () => imp() ? "mi" : "km";
+const paceU = kmh => pace(imp() ? kmh / 1.609344 : kmh), speedU = kmh => (imp() ? kmh / 1.609344 : kmh).toFixed(1), spdName = () => imp() ? "mph" : "km/h";
+const distU = (m, dp = 2) => `${(m / uLen()).toFixed(dp)} ${uName()}`;
+const raceName = m => ({ 1000: "1 km sprint", 3000: "3 km", 5000: "5K", 10000: "10K", 21097: "Half marathon" }[m] || distU(m, 1));
 let cfg = { ...DEF, ...load(SET_KEY, {}) };
 const maxHr = () => +cfg.maxHr || Math.round(208 - 0.7 * cfg.age);
 const ftp = () => +cfg.ftp || Math.round(cfg.weight * 2.5);
@@ -131,17 +138,26 @@ export class BreathEstimator {
 }
 
 /* ---------- devices: FTMS machine, heart-rate strap, demo ---------- */
-const inp = { power: null, rpm: null, kmh: null, hr: null, kcal: null, incline: null, at: 0, hrAt: 0, rrAt: 0 };
-const dev = { machine: null, kind: null, hrDev: null, control: null, feat: { power: false, incline: false, sim: false }, demo: null, q: Promise.resolve() };
+const inp = { power: null, rpm: null, kmh: null, hr: null, kcal: null, incline: null, at: 0, hrAt: 0, rrAt: 0, footKmh: null, footSpm: null, footW: null, footAt: 0, footWAt: 0 };
+const dev = { machine: null, kind: null, hrDev: null, foot: null, control: null, feat: { power: false, incline: false, sim: false }, demo: null, q: Promise.resolve() };
 const breath = new BreathEstimator();
+const footOk = () => !!dev.foot && performance.now() - inp.footAt < 5000;
+/* what the runner is doing right now: a foot pod wins over the treadmill's own numbers, like most running apps */
+function runNow() {
+  const now = performance.now(), fresh = now - inp.at < 5000;
+  if (footOk()) return { kmh: inp.footKmh || 0, spm: inp.footSpm || (fresh ? inp.rpm : null), watts: now - inp.footWAt < 5000 ? inp.footW : null, src: "foot" };
+  return { kmh: fresh && inp.kmh != null ? inp.kmh : 0, spm: fresh ? inp.rpm : null, watts: null, src: dev.demo ? "demo" : "treadmill" };
+}
 function chip() {
   const parts = [];
   if (dev.demo) parts.push(`<span class="pill gd">Demo ${dev.kind === "run" ? "treadmill" : "bike"}</span>`);
   if (dev.machine) parts.push(`<span class="pill gd">${esc(dev.machine.name || "Machine")} · ${dev.kind === "run" ? "treadmill" : "bike"}${dev.control ? " · control on" : ""}</span>`);
+  if (dev.foot) parts.push(`<span class="pill gd">${esc(dev.foot.name || "Foot pod")} · foot pod${dev.footPower ? " · power" : ""}</span>`);
   if (dev.hrDev) parts.push(`<span class="pill gd">${esc(dev.hrDev.name || "Heart-rate strap")}</span>`);
   $("rideDevices").innerHTML = parts.join(" ") || `<span class="muted">Nothing connected yet.</span>`;
-  $("rideStart").disabled = !(dev.machine || dev.demo);
-  $("rideKindNote").textContent = dev.machine || dev.demo ? (dev.kind === "run" ? "Treadmill mode: pace, incline and steps." : "Bike mode: power, cadence and virtual hills.") : "";
+  $("rideStart").disabled = !(dev.machine || dev.demo || dev.foot);
+  $("rideKindNote").textContent = dev.foot && dev.kind === "run" ? "Run mode: pace and cadence come from your foot pod, so any treadmill works." :
+    dev.machine || dev.demo ? (dev.kind === "run" ? "Treadmill mode: pace, incline and steps." : "Bike mode: power, cadence and virtual hills.") : "";
   renderWorkoutChoices();
 }
 function msg(t, bad) { const m = $("rideMsg"); m.textContent = t; m.dataset.bad = bad ? "1" : ""; }
@@ -189,6 +205,49 @@ async function connectHr() {
     await ch.startNotifications(); dev.hrDev = d; chip(); msg("Heart-rate strap connected. Breathing rate appears after about a minute of data.");
   } catch (e) { if (e.name !== "NotFoundError") msg(e.message || "Couldn't connect.", true); }
 }
+/* Running foot pods: the standard Bluetooth Running Speed and Cadence service. Pods that also measure running
+   power (for example Stryd) share it over the Cycling Power service, which FormIQ reads when it's there. */
+export function parseRSC(dv) {
+  const f = dv.getUint8(0); let o = 1;
+  const mps = dv.getUint16(o, true) / 256; o += 2;
+  const cadence = dv.getUint8(o); o += 1;
+  let stride = null, total = null;
+  if (f & 1) { stride = dv.getUint16(o, true) / 100; o += 2; }
+  if (f & 2) { total = dv.getUint32(o, true) / 10; o += 4; }
+  return { kmh: mps * 3.6, cadence, stride, total, running: !!(f & 4) };
+}
+export function footSpm(cadence, kmh) {          // some pods count strides (one foot), most count steps (both feet)
+  if (!cadence) return null;
+  return cadence < (kmh > 6.5 ? 120 : 75) ? cadence * 2 : cadence;
+}
+function onFoot(r) {
+  const now = performance.now(), k = r.kmh * (+cfg.footCal || 100) / 100, recent = inp.footKmh != null && now - inp.footAt < 3000;
+  let v = recent ? inp.footKmh * 0.6 + k * 0.4 : k;               // pods are jumpy: smooth over ~3 readings
+  if (k < 0.3 && v < 1) v = 0;
+  inp.footKmh = v; inp.footSpm = footSpm(r.cadence, v); inp.footAt = now;
+}
+async function connectFoot() {
+  if (!navigator.bluetooth) return btNeeded();
+  try {
+    const d = await navigator.bluetooth.requestDevice({ filters: [{ services: [0x1814] }], optionalServices: [0x1818] });
+    msg(`Connecting to ${d.name || "foot pod"}…`);
+    const server = await d.gatt.connect();
+    const ch = await (await server.getPrimaryService(0x1814)).getCharacteristic(0x2a53);
+    ch.addEventListener("characteristicvaluechanged", e => onFoot(parseRSC(e.target.value)));
+    d.addEventListener("gattserverdisconnected", () => { dev.foot = null; dev.footPower = false; if (!dev.machine && !dev.demo) dev.kind = null; chip(); msg("Foot pod disconnected.", true); });
+    await ch.startNotifications();
+    dev.footPower = false;
+    try {
+      const pc = await (await server.getPrimaryService(0x1818)).getCharacteristic(0x2a63);
+      pc.addEventListener("characteristicvaluechanged", e => { inp.footW = Math.max(0, e.target.value.getInt16(2, true)); inp.footWAt = performance.now(); });
+      await pc.startNotifications(); dev.footPower = true;
+    } catch {}
+    dev.foot = d;
+    if (dev.machine && dev.kind === "bike") msg("Foot pod connected. It's only used for runs, so it stays idle while a bike is connected.");
+    else { stopDemo(); dev.kind = "run"; msg(`Foot pod connected. Clip it to your shoe laces and start running on any treadmill.${dev.footPower ? " Running power is on too." : ""}`); }
+    chip(); renderRoutes();
+  } catch (e) { if (e.name !== "NotFoundError") msg(e.message || "Couldn't connect.", true); }
+}
 export function parseHr(dv) {
   const f = dv.getUint8(0); let o = 1; const hr = f & 1 ? dv.getUint16(o, true) : dv.getUint8(o); o += f & 1 ? 2 : 1;
   if (f & 8) o += 2; const rr = []; if (f & 16) for (; o + 1 < dv.byteLength; o += 2) rr.push(dv.getUint16(o, true) / 1024 * 1000);
@@ -211,8 +270,11 @@ function startDemo(kind) {
       const target = kind === "bike" ? 150 + 45 * Math.sin(t / 25) + (live?.target ? (live.target - 150) : 0) : 0;
       const effort = kind === "bike" ? target : (live?.targetKmh || cfg.easyKmh) * 14;
       hr += ((95 + effort * 0.32) - hr) * 0.03;
+      // demo runner: steady at the comfortable speed (or the workout's target), with a kick in a race's last 300 m
+      const left = live?.race ? live.raceLen - (live.d - live.S) : Infinity;
+      const kmh = live?.targetKmh || +(cfg.easyKmh * (1 + 0.025 * Math.sin(t / 40)) * (left < 300 ? 1.12 : 1)).toFixed(1);
       onData(kind === "bike" ? { watts: Math.round(target + (Math.random() - .5) * 16), rpm: Math.round(86 + (Math.random() - .5) * 6) }
-        : { kmh: live?.targetKmh || cfg.easyKmh, spm: 150 });
+        : { kmh, spm: Math.round(clamp(150 + (kmh - 8) * 5, 110, 195)) });
       let acc = beat; while (acc < 1000) { const rr = 60000 / hr * (1 + 0.045 * Math.sin(2 * Math.PI * 0.25 * (t + acc / 1000))); breath.addRR(rr); acc += rr; }
       beat = acc - 1000;                                       // carry the partial beat into the next second
       inp.hr = Math.round(hr); inp.hrAt = inp.rrAt = performance.now();
@@ -228,20 +290,101 @@ const BOTS = {
   bike: [["Easy Eli", 1.5, "#26a69a"], ["Steady Sam", 2.2, "#5c6bc0"], ["Brisk Bea", 3.0, "#ef5350"], ["Rocket Ro", 4.0, "#ffa000"]],
   run: [["Walker Wren", 5.0, "#26a69a"], ["Jogger Jo", 8.0, "#5c6bc0"], ["Runner Rae", 10.0, "#ef5350"], ["Racer Rex", 12.5, "#ffa000"]],
 };
+/* ---------- races: a start pen, a countdown, a field of rivals and a finish line ---------- */
+const FIRST = ["Ada", "Bram", "Cleo", "Dev", "Esme", "Finn", "Gus", "Hana", "Ivo", "Juno", "Kai", "Lena", "Milo", "Nia", "Otto", "Pia", "Quinn", "Rosa", "Saul", "Tess", "Uma", "Vik", "Wren", "Yara", "Zeke"];
+const INITIAL = "ABDHKLMOPRSTV";
+const KITS = ["#e53935", "#1e88e5", "#fdd835", "#8e24aa", "#00897b", "#f4511e", "#3949ab", "#c0ca33", "#6d4c41", "#d81b60", "#00acc1", "#7cb342", "#5e35b1", "#ffb300", "#546e7a"];
+const STYLES = ["steady", "steady", "fast", "kick", "even"];      // fast: goes out hard and fades · kick: saves it for the end
+const RACE_FIELD = 13, START_GAP = 15, COUNTDOWN = 10;
+export function makeField(kind, n, seed = Date.now()) {
+  let h = seed >>> 0; const rnd = () => (h = (Math.imul(h, 1664525) + 1013904223) >>> 0) / 4294967296;
+  const names = FIRST.slice(); for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [names[i], names[j]] = [names[j], names[i]]; }
+  const base = kind === "run" ? (+cfg.easyKmh || 8) : ftp() / cfg.weight * 0.95;         // km/h for runners, W/kg for riders
+  const lanes = [-.55, 0, .55, -.28, .28], bibs = new Set();
+  const bib = () => { let b; do b = 100 + Math.floor(rnd() * 900); while (bibs.has(b)); bibs.add(b); return b; };
+  return Array.from({ length: n }, (_, i) => {
+    const f = 0.84 + 0.36 * i / Math.max(1, n - 1) + (rnd() - .5) * 0.04;                 // a spread from slower than you to faster
+    const row = Math.floor(i / 3), d0 = START_GAP - 3 - row * 3.2 - rnd() * 1.2;             // lined up in the pen, some ahead of you, some behind
+    return { name: `${names[i]} ${INITIAL[Math.floor(rnd() * INITIAL.length)]}.`, bib: bib(), val: +(base * f).toFixed(2),
+      color: KITS[i % KITS.length], style: STYLES[Math.floor(rnd() * STYLES.length)], d: d0, v: 0, ph: rnd() * 6, lane: lanes[i % lanes.length] + (rnd() - .5) * .12,
+      seed: rnd() * 100, fin: null };
+  });
+}
+function botSpeed(L, b) {
+  const p = clamp((b.d - L.S) / L.raceLen, 0, 1), g = segAt(L.R, b.d).grade;
+  if (b.fin != null) return Math.max(0, b.v * 0.98 - 0.02);                             // finished: easing into a cool-down
+  let f = 1 + 0.025 * Math.sin(L.raceT / 37 + b.seed) + 0.015 * Math.sin(L.raceT / 11 + b.seed * 3);
+  if (b.style === "fast") f *= p < .3 ? 1.06 : 1 - 0.04 * Math.min(1, (p - .3) / .4);
+  if (b.style === "kick") f *= p > .85 ? 1.07 : .985;
+  if (L.raceLen - (b.d - L.S) < 300) f *= 1.05;                                             // everyone sprints for the line
+  if (L.kind === "run") return b.val / 3.6 * f * (1 - clamp(g, -5, 10) * 0.025);
+  return bikeSpeed(b.val * 75 * f, g, 84);
+}
+export function standings(L) {
+  const me = { name: "You", me: true, color: cfg.jersey || "#1f8a5b", prog: L.d - L.S, fin: L.fin ? L.fin.t : null, v: L.v };
+  const all = [me, ...L.bots.map(b => ({ name: b.name, bib: b.bib, color: b.color, prog: b.d - L.S, fin: b.fin, v: b.v, b }))];
+  return all.sort((a, b) => {                                  // finishers first, by time; then whoever is furthest along
+    const fa = a.fin != null, fb = b.fin != null;
+    if (fa !== fb) return fa ? -1 : 1;
+    return fa ? a.fin - b.fin : b.prog - a.prog;
+  });
+}
+const gapSecs = (ahead, behind, v) => (ahead - behind) / Math.max(1, v);
+const stepRate = kmh => clamp(150 + (kmh - 8) * 5, 100, 195);   // a typical runner's steps per minute at a speed
+function raceTick(L, dt, now) {
+  L.raceT += dt;
+  for (const b of L.bots) {
+    const vt = botSpeed(L, b); b.v += (vt - b.v) * Math.min(1, dt / (b.v < 0.5 ? 1.2 : 2.5));
+    b.d += b.v * dt; b.ph += (L.kind === "run" ? stepRate(b.v * 3.6) : 85) / 60 * Math.PI * dt;
+    if (b.fin == null && b.d - L.S >= L.raceLen) b.fin = L.raceT - (b.d - L.S - L.raceLen) / Math.max(0.5, b.v);
+  }
+  const prog = L.d - L.S, left = L.raceLen - prog;
+  if (!L.fin && left <= 0) {                                     // across the line
+    const t = L.raceT - (prog - L.raceLen) / Math.max(0.5, L.v);
+    L.fin = { t, place: 1 + L.bots.filter(b => b.fin != null && b.fin < t).length };
+    say(`Finished ${ord(L.fin.place)} of ${L.bots.length + 1}, in ${hms(t).replace(":", " minutes ")} seconds.${L.fin.place === 1 ? " You won!" : L.fin.place <= 3 ? " That's a podium!" : ""}`);
+    showResult(L); return;
+  }
+  if (L.fin) return;
+  const order = standings(L), place = order.findIndex(r => r.me) + 1;
+  const cue = L.toGo.find(([m]) => left <= m); if (cue) { L.toGo = L.toGo.filter(c => c !== cue); say(`${cue[1]} You're ${ord(place)}.`); L.lastPlace = place; L.placeAt = now; return; }
+  if (!L.halfway && prog >= L.raceLen / 2) { L.halfway = true; say(`Halfway. You're ${ord(place)}.`); L.lastPlace = place; L.placeAt = now; return; }
+  // only call a new place once it has held for a few seconds, so two runners swapping back and forth stay quiet
+  if (place !== L.heldPlace) { L.heldPlace = place; L.heldSince = L.raceT; }
+  if (L.lastPlace == null || L.raceT < 30) L.lastPlace = place;
+  else if (place !== L.lastPlace && L.raceT - L.heldSince >= 6 && now - L.placeAt > 15000) {
+    say(place < L.lastPlace ? `Up to ${ord(place)}.` : `Down to ${ord(place)}.`); L.lastPlace = place; L.placeAt = now;
+  }
+}
+function showResult(L) {
+  const box = $("hudResult"), order = standings(L).filter(r => r.fin != null).slice(0, 3);
+  box.innerHTML = `<b>${ord(L.fin.place)} of ${L.bots.length + 1}</b><span>${raceName(L.raceLen)} · ${hms(L.fin.t)}</span>
+    <ol>${order.map(r => `<li${r.me ? ' class="me"' : ""}><i style="background:${r.color}"></i>${esc(r.name)}<em>${hms(r.fin)}</em></li>`).join("")}</ol>
+    <small>Keep going to cool down, or tap Finish.</small>`;
+  box.hidden = false; setTimeout(() => { if (live === L) box.hidden = true; }, 15000);
+}
+
 function startRide() {
   const R = routes.find(r => r.id === $("rideRoute").value) || routes[0];
-  const mode = $("rideMode").value, kind = dev.kind === "run" ? "run" : "bike";
+  const mode = $("rideMode").value, kind = dev.kind === "run" ? "run" : "bike", race = mode === "event";
   const wo = mode === "workout" ? WORKOUTS[kind].find(w => w.id === $("rideWorkout").value) : null;
-  const pb = prog.pbs[`${R.id}:${kind}`];
+  const pb = prog.pbs[`${R.id}:${kind}`], raceLen = +$("rideRaceDist").value || 5000;
   live = { R, kind, mode, wo, woT: 0, woOn: 0, woSecs: wo ? wo.steps.reduce((t, s) => t + s[0], 0) : 0, d: 0, v: 0, t: 0, climb: 0, lastEl: elevAt(R, 0),
-    samples: [], last: performance.now(), sampleAcc: 0, laps: 0, lapStart: 0, trace: [0], pbTrace: pb?.trace || null, pbTime: pb?.time || null,
-    bots: mode === "race" ? BOTS[kind].map(([name, val, color], i) => ({ name, val, color, d: 0, v: 0, lane: [-.45, .45, -.2, .2][i] })) : [],
+    samples: [], last: performance.now(), sampleAcc: 0, laps: 0, lapStart: 0, trace: [0], pbTrace: race ? null : pb?.trace || null, pbTime: pb?.time || null,
+    bots: mode === "race" ? BOTS[kind].map(([name, val, color], i) => ({ name, val, color, d: 0, v: 0, ph: i, lane: [-.45, .45, -.2, .2][i] })) : race ? makeField(kind, RACE_FIELD) : [],
+    race, raceLen, S: race ? START_GAP : 0, count: race ? COUNTDOWN : 0, raceT: 0, fin: null, lastPlace: null, placeAt: 0, toGo: [], halfway: false,
+    splits: [], splitNext: uLen(), splitT0: 0, spm: null,
     kcal: 0, work: 0, zoneHr: [0, 0, 0, 0, 0, 0], zonePw: [0, 0, 0, 0, 0, 0, 0], hrHigh: 0, lastGrade: null, lastGradeAt: 0, lastCue: -1,
     target: null, targetKmh: null, crank: 0, start: Date.now(), paused: false, kmCue: 1, beat: false, pb: false, lapTime: null, phase: 0, skyX: 0, startXp: prog.xp };
-  $("rideSetup").hidden = true; $("rideSummary").hidden = true; $("rideLive").hidden = false;
+  if (race) live.toGo = (imp() ? [[MI, "One mile to go."], [402, "Quarter mile to go."], [200, "Final 200 metres. Sprint!"]] : [[1000, "One kilometre to go."], [500, "500 metres to go."], [200, "Final 200 metres. Sprint!"]])
+    .filter(([m]) => m < raceLen * 0.9);
+  if (race) { cfg.raceDist = raceLen; save(SET_KEY, cfg); }
+  $("rideSetup").hidden = true; $("rideSummary").hidden = true; $("rideLive").hidden = false; $("hudResult").hidden = true;
+  $("hudRace").hidden = !race; $("hudCount").hidden = !race;
   if (live.kind === "run" && cfg.autoIncline && dev.feat.incline && dev.control) msg("Auto-incline is on. Your treadmill's speed is never changed by FormIQ.");
   try { navigator.wakeLock?.request("screen").then(w => live && (live.wake = w)).catch(() => {}); } catch {}
-  say(wo ? `${wo.name}. First, ${stepText(wo.steps[0])}.` : `${R.name}. Let's go.`);
+  say(race ? `${raceName(raceLen)} race on ${R.name}. ${RACE_FIELD + 1} ${kind === "run" ? "runners" : "riders"} in the pen. Starting in ${COUNTDOWN} seconds.` :
+    wo ? `${wo.name}. First, ${stepText(wo.steps[0])}.` : `${R.name}. Let's go.`);
   live.timer = setInterval(tick, 250); requestAnimationFrame(frame); resize();
   window.__formiqRide = live;
 }
@@ -252,7 +395,14 @@ function tick() {
   const L = live; if (!L) return;
   const now = performance.now(), scale = window.__rideScale || 1; let dt = Math.min(2, (now - L.last) / 1000) * scale; L.last = now;
   if (L.paused) return;
-  const fresh = now - inp.at < 5000, grade = segAt(L.R, L.d).grade;
+  if (L.race && L.count > 0) {                                   // in the start pen: nobody moves until the gun
+    const before = Math.ceil(L.count); L.count = Math.max(0, L.count - dt); const after = Math.ceil(L.count);
+    if (after !== before && after > 0 && after <= 5) say(String(after));
+    if (L.count === 0) { say("Go!"); $("hudCount").textContent = "GO!"; setTimeout(() => { if (live === L) $("hudCount").hidden = true; }, 1200); }
+    else $("hudCount").textContent = after;
+    hud(); return;
+  }
+  const fresh = now - inp.at < 5000, grade = segAt(L.R, L.d).grade, run = L.kind === "run" ? runNow() : null;
   // workout targets
   let step = null;
   if (L.wo && L.woT < L.woSecs) {
@@ -269,20 +419,20 @@ function tick() {
     else { const vt = bikeSpeed(P, grade, +cfg.weight + 9); L.v += (vt - L.v) * Math.min(1, dt / (vt < L.v ? 5 : 2.5)); }
     L.work += P * dt; L.kcal = L.work / 1000;
   } else {
-    L.v = fresh && inp.kmh != null ? inp.kmh / 3.6 : 0;
-    const kg = +cfg.weight, walk = (inp.kmh || 0) < 7;
+    L.v = run.kmh / 3.6; L.spm = run.spm; L.runW = run.watts;
+    const kg = +cfg.weight, walk = run.kmh < 7;
     L.kcal += (L.v * dt / 1000) * kg * (walk ? 0.5 : 1.0) + Math.max(0, (inp.incline ?? (cfg.autoIncline ? grade : 0))) / 100 * L.v * dt * kg * 9.81 / 4184 / 0.25;
   }
   const moving = L.v > 0.3 || (L.kind === "bike" && fresh && inp.power > 0);
   if (moving) {
-    L.t += dt; if (L.wo) { L.woT += dt; if (step) { const ok = L.kind === "bike" ? Math.abs((inp.power || 0) - L.target) <= L.target * 0.1 : Math.abs((inp.kmh || 0) - L.targetKmh) <= 0.5; if (ok) L.woOn += dt; } }
+    L.t += dt; if (L.wo) { L.woT += dt; if (step) { const ok = L.kind === "bike" ? Math.abs((inp.power || 0) - L.target) <= L.target * 0.1 : Math.abs(run.kmh - L.targetKmh) <= 0.5; if (ok) L.woOn += dt; } }
     if (inp.hr && now - inp.hrAt < 5000) { L.zoneHr[hrZone(inp.hr)] += dt; if (inp.hr > 0.95 * maxHr()) { L.hrHigh += dt; if (L.hrHigh > 10 && now - (L.hrWarnAt || 0) > 60000) { L.hrWarnAt = now; say("Heart rate is very high. Ease off."); } } else L.hrHigh = 0; }
     if (L.kind === "bike" && inp.power != null) L.zonePw[powerZone(inp.power)] += dt;
   }
   L.d += L.v * dt;
   const el = elevAt(L.R, L.d); if (el > L.lastEl) L.climb += el - L.lastEl; L.lastEl = el;
   L.skyX += segAt(L.R, L.d).curve * L.v * dt * 0.004;
-  L.crank += ((inp.rpm || 0) / 60) * 2 * Math.PI * dt / scale;
+  L.crank += (((L.kind === "run" ? L.spm : inp.rpm) || 0) / 60) * 2 * Math.PI * dt / scale;
   // lap, PB trace and ghost
   while (L.trace.length * 50 <= L.d - L.lapStart && L.laps === 0) L.trace.push(L.t);
   if (L.d - L.lapStart >= L.R.len) {
@@ -291,15 +441,21 @@ function tick() {
       if (!L.pbTime || lapT < L.pbTime) { L.pb = true; prog.pbs[key] = { time: lapT, trace: L.trace.slice(0, Math.ceil(L.R.len / 50) + 1), at: Date.now() }; save(PROG_KEY, prog); say(`New personal best on ${L.R.name}: ${hms(lapT)}.`); }
       else say(`Lap done in ${hms(lapT)}.`); }
   }
-  if (L.d / 1000 >= L.kmCue) { if (!L.wo) say(`${L.kmCue} kilometre${L.kmCue > 1 ? "s" : ""}. ${L.kind === "bike" ? `Average ${Math.round(L.work / Math.max(1, L.t))} watts.` : `Pace ${pace(L.d / Math.max(1, L.t) * 3.6).replace(":", " minutes ")} seconds per kilometre.`}`); L.kmCue++; }
+  // splits every kilometre or mile, with a spoken cue outside races and workouts
+  while (L.d >= L.splitNext) {
+    L.splits.push(L.t - L.splitT0); L.splitT0 = L.t; L.splitNext += uLen();
+    const n = L.splits.length, unit = imp() ? "mile" : "kilometre";
+    if (!L.wo && !L.race) say(`${n} ${unit}${n > 1 ? "s" : ""}. ${L.kind === "bike" ? `Average ${Math.round(L.work / Math.max(1, L.t))} watts.` : `That ${unit} took ${hms(L.splits[n - 1]).replace(":", " minutes ")} seconds.`}`);
+  }
   // bots
-  for (const b of L.bots) {
+  if (L.race) raceTick(L, dt, now);
+  else for (const b of L.bots) {
     if (L.t < 1) continue;
     const g = segAt(L.R, b.d).grade;
     b.v = L.kind === "bike" ? bikeSpeed(b.val * 75 * (1 + 0.04 * Math.sin(b.d / 300)), g, 84) : b.val / 3.6 * (1 - clamp(g, -5, 10) * 0.025);
-    b.d += b.v * dt;
+    b.d += b.v * dt; b.ph = (b.ph || 0) + stepRate(b.v * 3.6) / 60 * Math.PI * dt;
   }
-  if (L.bots.length && !L.beat && L.t > 60) L.beat = L.bots.some(b => L.d > b.d + 20 && b.val >= (L.kind === "bike" ? 2.2 : 8));
+  if (!L.race && L.bots.length && !L.beat && L.t > 60) L.beat = L.bots.some(b => L.d > b.d + 20 && b.val >= (L.kind === "bike" ? 2.2 : 8));
   // trainer control
   if (dev.control && dev.machine) {
     const want = L.kind === "bike" ? (L.wo && dev.feat.power ? null : grade * cfg.difficulty / 100) :
@@ -310,27 +466,33 @@ function tick() {
   }
   // samples once a second
   L.sampleAcc += dt;
-  while (L.sampleAcc >= 1) { L.sampleAcc -= 1; L.samples.push({ t: Math.round(L.t), d: Math.round(L.d), p: L.kind === "bike" ? Math.round(inp.power || 0) : null, c: inp.rpm ? Math.round(inp.rpm) : null,
+  while (L.sampleAcc >= 1) { L.sampleAcc -= 1; L.samples.push({ t: Math.round(L.t), d: Math.round(L.d), p: L.kind === "bike" ? Math.round(inp.power || 0) : L.runW != null ? Math.round(L.runW) : null, c: L.kind === "run" ? (L.spm ? Math.round(L.spm) : null) : inp.rpm ? Math.round(inp.rpm) : null,
     v: +(L.v * 3.6).toFixed(1), hr: inp.hr && now - inp.hrAt < 5000 ? inp.hr : null, br: breath.rate ? Math.round(breath.rate) : null, el: +el.toFixed(1) });
     if (L.samples.length % 5 === 0 && now - inp.rrAt < 5000) breath.estimate(); }
   hud();
 }
 function hud() {
   const L = live, now = performance.now(), hrOk = inp.hr && now - inp.hrAt < 5000, kmh = L.v * 3.6;
-  const big = L.kind === "bike" ? [`${Math.round(inp.power || 0)}`, "watts", inp.power ? zoneColor[powerZone(inp.power)] : null] : [pace(kmh), "min/km", null];
+  const big = L.kind === "bike" ? [`${Math.round(inp.power || 0)}`, "watts", inp.power ? zoneColor[powerZone(inp.power)] : null] : [paceU(kmh), `min/${uName()}`, null];
   const z = hrOk ? hrZone(inp.hr) : 0;
   const br = now - inp.rrAt < 8000 && breath.rate ? `${Math.round(breath.rate)}` : "–";
   $("hudMain").innerHTML = `<b style="${big[2] ? `color:${big[2]}` : ""}">${big[0]}</b><span>${big[1]}</span>`;
-  $("hudGrid").innerHTML = [
-    L.kind === "bike" ? ["Speed", `${kmh.toFixed(1)}`, "km/h"] : ["Speed", `${kmh.toFixed(1)}`, "km/h"],
-    L.kind === "bike" ? ["Cadence", inp.rpm ? Math.round(inp.rpm) : "–", "rpm"] : ["Incline", inp.incline != null ? inp.incline.toFixed(1) : (cfg.autoIncline ? Math.max(0, segAt(L.R, L.d).grade).toFixed(1) : "0.0"), "%"],
+  const avgKmh = L.d / Math.max(1, L.t) * 3.6, runDist = L.race ? Math.max(0, L.d - L.S) : L.d;
+  $("hudGrid").innerHTML = (L.kind === "bike" ? [
+    ["Speed", speedU(kmh), spdName()], ["Cadence", inp.rpm ? Math.round(inp.rpm) : "–", "rpm"],
     ["Heart", hrOk ? inp.hr : "–", hrOk ? `bpm · Z${z}` : "bpm", hrOk ? zoneColor[z] : null],
     ["Breathing", br, "br/min", null, "Estimated from a chest strap's beat-to-beat data"],
-    ["Time", hms(L.t), ""], ["Distance", (L.d / 1000).toFixed(2), "km"], ["Climbed", Math.round(L.climb), "m"],
-    L.kind === "bike" ? ["W/kg", ((inp.power || 0) / cfg.weight).toFixed(1), ""] : ["Calories", Math.round(L.kcal), "kcal"],
-  ].map(([k, v, u, c, title]) => `<div class="hstat"${title ? ` title="${title}"` : ""}><span>${k}</span><b${c ? ` style="color:${c}"` : ""}>${v}</b><i>${u}</i></div>`).join("");
+    ["Time", hms(L.race ? L.raceT : L.t), ""], ["Distance", (runDist / uLen()).toFixed(2), uName()], ["Climbed", Math.round(L.climb), "m"],
+    ["W/kg", ((inp.power || 0) / cfg.weight).toFixed(1), ""],
+  ] : [
+    ["Speed", speedU(kmh), spdName()], ["Cadence", L.spm ? Math.round(L.spm) : "–", "steps/min"],
+    ["Heart", hrOk ? inp.hr : "–", hrOk ? `bpm · Z${z}` : "bpm", hrOk ? zoneColor[z] : null],
+    ["Breathing", br, "br/min", null, "Estimated from a chest strap's beat-to-beat data"],
+    ["Time", hms(L.race ? L.raceT : L.t), ""], ["Distance", (runDist / uLen()).toFixed(2), uName()], ["Avg pace", paceU(avgKmh), `/${uName()}`],
+    L.runW != null ? ["Power", Math.round(L.runW), "watts"] : ["Calories", Math.round(L.kcal), "kcal"],
+  ]).map(([k, v, u, c, title]) => `<div class="hstat"${title ? ` title="${title}"` : ""}><span>${k}</span><b${c ? ` style="color:${c}"` : ""}>${v}</b><i>${u}</i></div>`).join("");
   const grade = segAt(L.R, L.d).grade;
-  $("hudGrade").textContent = `${grade >= 0 ? "▲" : "▼"} ${Math.abs(grade).toFixed(1)}%`;
+  $("hudGrade").innerHTML = `${grade >= 0 ? "▲" : "▼"} ${Math.abs(grade).toFixed(1)}%${L.kind === "run" && inp.incline != null && performance.now() - inp.at < 5000 ? `<small>belt ${inp.incline.toFixed(1)}%</small>` : ""}`;
   $("hudGrade").dataset.steep = grade > 4 ? "up" : grade < -2 ? "down" : "";
   $("hudWarn").hidden = !(L.hrHigh > 10);
   // workout bar
@@ -342,15 +504,37 @@ function hud() {
     const st = L.wo.steps[L.stepIdx || 0];
     $("woText").textContent = L.woDone ? `Workout complete · on target ${Math.round(L.woOn / Math.max(1, L.woSecs) * 100)}%` :
       `${L.kind === "bike" ? `Target ${L.target} W` : `Target ${L.targetKmh} km/h${L.targetIncline != null ? ` · incline ${L.targetIncline}%` : ""}`} · ${hms(L.stepLeft || 0)} left${L.wo.steps[(L.stepIdx || 0) + 1] ? ` · next ${L.kind === "bike" ? Math.round(L.wo.steps[L.stepIdx + 1][1] * ftp()) + " W" : (L.wo.steps[L.stepIdx + 1][1] * cfg.easyKmh).toFixed(1) + " km/h"}` : ""}`;
-    const on = L.kind === "bike" ? Math.abs((inp.power || 0) - (L.target || 0)) <= (L.target || 0) * 0.1 : Math.abs((inp.kmh || 0) - (L.targetKmh || 0)) <= 0.5;
+    const on = L.kind === "bike" ? Math.abs((inp.power || 0) - (L.target || 0)) <= (L.target || 0) * 0.1 : Math.abs(L.v * 3.6 - (L.targetKmh || 0)) <= 0.5;
     $("woText").dataset.on = L.woDone ? "" : on ? "1" : "0";
   } else { $("woBar").hidden = true; $("woText").textContent = ""; }
+  if (L.race) { raceHud(L); drawMini(); return; }
   // leaderboard
-  const rows = [{ name: "You", d: L.d, me: true, color: cfg.jersey || "#1f8a5b" }, ...L.bots.map(b => ({ name: b.name, d: b.d, color: b.color, sub: L.kind === "bike" ? `${b.val} W/kg` : `${pace(b.val)}/km` }))];
+  const rows = [{ name: "You", d: L.d, me: true, color: cfg.jersey || "#1f8a5b" }, ...L.bots.map(b => ({ name: b.name, d: b.d, color: b.color, sub: L.kind === "bike" ? `${b.val} W/kg` : `${paceU(b.val)}/${uName()}` }))];
   if (L.pbTrace && L.laps === 0) rows.push({ name: "Your best", d: ghostD(L), color: "#9e9e9e", ghost: true });
   rows.sort((a, b) => b.d - a.d);
-  $("rideBoard").innerHTML = rows.length > 1 ? rows.map(r => { const gap = r.d - L.d; return `<li${r.me ? ' class="me"' : ""}><i style="background:${r.color}"></i><span>${esc(r.name)}${r.sub ? ` <small>${r.sub}</small>` : ""}</span><b>${r.me ? `${(L.d / 1000).toFixed(2)} km` : `${gap >= 0 ? "+" : "−"}${Math.abs(Math.round(gap))} m`}</b></li>`; }).join("") : "";
+  $("rideBoard").innerHTML = rows.length > 1 ? rows.map(r => { const gap = r.d - L.d; return `<li${r.me ? ' class="me"' : ""}><i style="background:${r.color}"></i><span>${esc(r.name)}${r.sub ? ` <small>${r.sub}</small>` : ""}</span><b>${r.me ? distU(L.d) : `${gap >= 0 ? "+" : "−"}${Math.abs(Math.round(gap))} m`}</b></li>`; }).join("") : "";
   drawMini();
+}
+/* race box on the screen and the leaderboard around you, with gaps in seconds like a race commentator would give */
+function raceHud(L) {
+  const order = standings(L), i = order.findIndex(r => r.me), n = order.length, me = order[i];
+  const prog = Math.max(0, L.d - L.S), left = Math.max(0, L.raceLen - prog);
+  const ahead = order[i - 1], behind = order[i + 1], v = Math.max(L.v, 1);
+  const gapTxt = (o, sign) => o.fin != null && L.fin == null ? "finished" : `${sign}${hms(Math.abs(gapSecs(o.prog, me.prog, v)))}`;
+  $("hudRace").innerHTML = L.count > 0 ? `<b>Start pen</b><span>${raceName(L.raceLen)} · ${n} ${L.kind === "run" ? "runners" : "riders"}</span>` :
+    `<b>${ord(L.fin ? L.fin.place : i + 1)}<small> / ${n}</small></b><span>${L.fin ? `Finished · ${hms(L.fin.t)}` : `${distU(left, left < 1000 ? 2 : 1)} to go`}</span>
+     <div class="rbar"><i style="width:${clamp(prog / L.raceLen * 100, 0, 100)}%"></i>${order.filter(r => !r.me).map(r => `<em style="left:${clamp(r.prog / L.raceLen * 100, 0, 100)}%;background:${r.color}"></em>`).join("")}</div>
+     ${L.fin ? "" : `<div class="rgaps">${ahead ? `<span>▲ ${esc(ahead.name)} ${gapTxt(ahead, "+")}</span>` : `<span>▲ Leading</span>`}${behind ? `<span>▼ ${esc(behind.name)} ${gapTxt(behind, "−")}</span>` : ""}</div>`}`;
+  // leaderboard: the leader, then two either side of you
+  const show = new Set([0, i - 2, i - 1, i, i + 1, i + 2].filter(k => k >= 0 && k < n));
+  let prev = -1; const rows = [];
+  for (const k of [...show].sort((a, b) => a - b)) {
+    if (k - prev > 1) rows.push(`<li class="gap">…</li>`); prev = k;
+    const r = order[k], val = r.me ? (r.fin != null ? hms(r.fin) : distU(prog)) : r.fin != null ? hms(r.fin) :
+      `${r.prog >= me.prog ? "+" : "−"}${hms(Math.abs(gapSecs(r.prog, me.prog, v)))}`;
+    rows.push(`<li${r.me ? ' class="me"' : ""}><em>${k + 1}</em><i style="background:${r.color}"></i><span>${esc(r.name)}${r.bib ? ` <small>#${r.bib}</small>` : ""}</span><b>${val}</b></li>`);
+  }
+  $("rideBoard").innerHTML = rows.join("");
 }
 function ghostD(L) {
   const tr = L.pbTrace; if (!tr) return 0; if (L.t >= tr[tr.length - 1]) return L.R.len;
@@ -393,12 +577,20 @@ function draw() {
     maxy = p2.Y;
   }
   // riders ahead on the road (bots and ghost)
-  const others = L.bots.map(b => ({ d: b.d, color: b.color, name: b.name, lane: b.lane }));
+  const others = L.bots.map(b => ({ d: b.d, color: b.color, name: b.name, lane: b.lane, ph: b.ph }));
   if (L.pbTrace && L.laps === 0) others.push({ d: ghostD(L), color: "rgba(255,255,255,.55)", name: "Your best", lane: 0.3, ghost: true });
   const byN = {}; for (const o of others) { let rel = o.d - L.d; if (rel < 3 || rel > DRAW * SEG) continue; const n = Math.floor(rel / SEG); (byN[n] ||= []).push({ ...o, f: (rel / SEG) - n }); }
+  const arches = {};
+  if (L.race) {
+    const marks = [[L.S, "START", "start"], [L.S + L.raceLen, "FINISH", "finish"]];
+    if (L.raceLen >= 3000) marks.push([L.S + L.raceLen - 1000, imp() ? "0.6 MI TO GO" : "1 KM TO GO", "togo"]);
+    if (L.raceLen >= 2000) marks.push([L.S + L.raceLen / 2, "HALFWAY", "togo"]);
+    for (const [d, label, k] of marks) { const rel = d - L.d; if (rel < 2 || rel > DRAW * SEG) continue; (arches[Math.floor(rel / SEG)] ||= []).push({ label, k }); }
+  }
   for (let n = P.length - 1; n > 0; n--) {
     const e = P[n]; if (e.p1.z <= DEPTH) continue;
-    for (const sp of e.s.sprites) sprite(e, sp.x, sp, T);
+    for (const sp of e.s.sprites) if (!(L.race && sp.k === "km")) sprite(e, sp.x, sp, T);
+    for (const a of arches[n] || []) arch(e, a);
     for (const o of byN[n] || []) rider(e, o);
   }
   me(L);
@@ -428,6 +620,7 @@ function sprite(e, sx, sp, T) {
 function rider(e, o) {
   const s = e.p1.s, X = e.p1.X + s * o.lane * ROAD_W * W / 2, Y = e.p1.Y, k = s * W / 2, h = 420 * k, w = h * .5;
   if (h < 2) return;
+  if (live.kind === "run") return clipTo(e, () => { runner(X, Y, h, o.ghost ? "#ffffff" : o.color, o.ghost ? live.crank / 2 : o.ph || 0, o.ghost ? .45 : 1); nameTag(X, Y, h, o.name); });
   clipTo(e, () => {
     ctx.globalAlpha = o.ghost ? 0.45 : 1;
     ctx.fillStyle = "#212121"; ctx.fillRect(X - w * .05, Y - h * .4, w * .1, h * .4);             // rear wheel, seen from behind
@@ -436,8 +629,49 @@ function rider(e, o) {
     ctx.beginPath(); ctx.moveTo(X - w * .3, Y - h * .55); ctx.lineTo(X + w * .3, Y - h * .55); ctx.lineTo(X + w * .24, Y - h * .9); ctx.lineTo(X - w * .24, Y - h * .9); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#263238"; ctx.beginPath(); ctx.ellipse(X, Y - h * .97, w * .16, h * .08, 0, 0, 7); ctx.fill();
     ctx.globalAlpha = 1;
-    if (h > 40) { ctx.font = `600 ${Math.round(clamp(h * .22, 11, 22))}px "IBM Plex Sans", sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(0,0,0,.55)";
-      const fh = clamp(h * .2, 14, 28), tw = ctx.measureText(o.name).width + 10; ctx.fillRect(X - tw / 2, Y - h * 1.1 - fh, tw, fh); ctx.fillStyle = "#fff"; ctx.fillText(o.name, X, Y - h * 1.1 - fh * .25); }
+    nameTag(X, Y, h, o.name);
+  });
+}
+function nameTag(X, Y, h, name) {
+  if (h <= 40) return;
+  ctx.font = `600 ${Math.round(clamp(h * .22, 11, 22))}px "IBM Plex Sans", sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "rgba(0,0,0,.55)";
+  const fh = clamp(h * .2, 14, 28), tw = ctx.measureText(name).width + 10; ctx.fillRect(X - tw / 2, Y - h * 1.1 - fh, tw, fh); ctx.fillStyle = "#fff"; ctx.fillText(name, X, Y - h * 1.1 - fh * .25);
+}
+/* a runner seen from behind: legs kick up in turn, arms swing opposite, body bobs once per step */
+function runner(X, Y, h, color, ph, alpha = 1) {
+  const w = h * .5, bob = Math.abs(Math.cos(ph)) * h * .025; Y -= bob;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const sg of [-1, 1]) {
+    const lift = Math.max(0, Math.sin(ph + (sg < 0 ? 0 : Math.PI))), hipX = X + sg * w * .11, hipY = Y - h * .5;
+    const kneeX = hipX + sg * w * .02, kneeY = Y - h * .27 - lift * h * .05, footY = Y - h * .02 - lift * h * .2;
+    ctx.strokeStyle = "#37474f"; ctx.lineWidth = w * .14; ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.lineTo(hipX, footY); ctx.stroke();
+    ctx.fillStyle = "#eceff1"; ctx.beginPath(); ctx.ellipse(hipX, footY + h * .015, w * .1, h * .03, 0, 0, 7); ctx.fill();
+  }
+  ctx.fillStyle = "#263238"; ctx.fillRect(X - w * .27, Y - h * .6, w * .54, h * .13);                         // shorts
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(X - w * .3, Y - h * .58); ctx.lineTo(X + w * .3, Y - h * .58); ctx.lineTo(X + w * .34, Y - h * .9); ctx.lineTo(X - w * .34, Y - h * .9); ctx.closePath(); ctx.fill();
+  for (const sg of [-1, 1]) {
+    const sw = Math.sin(ph + (sg < 0 ? Math.PI : 0)) * h * .05, shX = X + sg * w * .32, shY = Y - h * .86;
+    ctx.strokeStyle = color; ctx.lineWidth = w * .11; ctx.beginPath(); ctx.moveTo(shX, shY); ctx.lineTo(shX + sg * w * .1, Y - h * .7 + sw); ctx.lineTo(shX - sg * w * .02, Y - h * .62 + sw * 1.5); ctx.stroke();
+  }
+  ctx.fillStyle = "#263238"; ctx.beginPath(); ctx.ellipse(X, Y - h * .98, w * .17, h * .09, 0, 0, 7); ctx.fill();
+  ctx.restore();
+}
+/* start, finish and marker arches across the road */
+function arch(e, a) {
+  const s = e.p1.s, X = e.p1.X, Y = e.p1.Y, k = s * W / 2, half = e.p1.w * 1.2, h = 2400 * k, bh = 480 * k, post = Math.max(2, 110 * k);
+  if (h < 4) return;
+  clipTo(e, () => {
+    ctx.fillStyle = "#263238"; ctx.fillRect(X - half - post / 2, Y - h, post, h); ctx.fillRect(X + half - post / 2, Y - h, post, h);
+    if (a.k === "finish") {                                       // chequered banner
+      const cols = 16, cw = 2 * half / cols, rows = 2;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { ctx.fillStyle = (r + c) % 2 ? "#111" : "#fafafa"; ctx.fillRect(X - half + c * cw, Y - h + r * bh / rows, cw + 0.5, bh / rows + 0.5); }
+    } else { ctx.fillStyle = a.k === "start" ? "#1f8a5b" : "#1565c0"; ctx.fillRect(X - half, Y - h, 2 * half, bh); }
+    if (bh > 12) {
+      const fs = Math.round(bh * .55); ctx.font = `800 ${fs}px "Barlow Condensed", sans-serif`; ctx.textAlign = "center";
+      const tw = ctx.measureText(a.label).width + fs * .6;
+      if (a.k === "finish") { ctx.fillStyle = "rgba(0,0,0,.75)"; ctx.fillRect(X - tw / 2, Y - h + bh * .12, tw, bh * .76); }
+      ctx.fillStyle = "#fff"; ctx.fillText(a.label, X, Y - h + bh * .7);
+    }
   });
 }
 function me(L) {
@@ -447,10 +681,7 @@ function me(L) {
     ctx.fillStyle = "#1c1c1c"; ctx.fillRect(X - w * .05, Y - h * .42, w * .1, h * .42);
     for (const sgn of [-1, 1]) { const up = Math.sin(ph + (sgn < 0 ? 0 : Math.PI)) * h * .07; ctx.strokeStyle = "#37474f"; ctx.lineWidth = w * .13;
       ctx.beginPath(); ctx.moveTo(X + sgn * w * .14, Y - h * .62); ctx.lineTo(X + sgn * w * .2, Y - h * .42 + up); ctx.lineTo(X + sgn * w * .12, Y - h * .2 + up); ctx.stroke(); }
-  } else {
-    for (const sgn of [-1, 1]) { const sw = Math.sin(ph / 2 + (sgn < 0 ? 0 : Math.PI)); ctx.strokeStyle = "#37474f"; ctx.lineWidth = w * .14;
-      ctx.beginPath(); ctx.moveTo(X + sgn * w * .12, Y - h * .55); ctx.lineTo(X + sgn * w * .14, Y - h * .28 - sw * h * .05); ctx.lineTo(X + sgn * w * .13, Y - h * .02 - Math.max(0, sw) * h * .08); ctx.stroke(); }
-  }
+  } else { ctx.restore(); runner(X, Y, h, c, L.v > 0.3 ? ph / 2 : 0); return; }
   ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(X - w * .36, Y - h * .62); ctx.lineTo(X + w * .36, Y - h * .62); ctx.lineTo(X + w * .3, Y - h * .98); ctx.lineTo(X - w * .3, Y - h * .98); ctx.closePath(); ctx.fill();
   ctx.strokeStyle = c; ctx.lineWidth = w * .1; for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.moveTo(X + sgn * w * .3, Y - h * .95); ctx.lineTo(X + sgn * w * .42, Y - h * .7); ctx.stroke(); }
   ctx.fillStyle = "#263238"; ctx.beginPath(); ctx.ellipse(X, Y - h * 1.06, w * .19, h * .1, 0, 0, 7); ctx.fill();
@@ -458,6 +689,7 @@ function me(L) {
 }
 function drawMini() {
   const c = $("rideMini"), L = live; if (!c || !L) return;
+  if (L.race) return drawRaceMini(c, L);
   const r = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), w = c.width = Math.round(r.width * dpr), h = c.height = Math.round(r.height * dpr), g = c.getContext("2d");
   const R = L.R, span = Math.max(20, R.maxEl - R.minEl), y = e => h - 6 * dpr - (e - R.minEl) / span * (h - 22 * dpr), step = Math.max(1, Math.floor(R.segs.length / w));
   const css = getComputedStyle(c), fg = css.getPropertyValue("--muted") || "#888", acc = css.getPropertyValue("--accent") || "#1f8a5b";
@@ -468,6 +700,20 @@ function drawMini() {
   const dot = (d, col, rad) => { const xx = wrap(R, d) / R.len * w; g.fillStyle = col; g.beginPath(); g.arc(xx, y(elevAt(R, d)), rad * dpr, 0, 7); g.fill(); };
   for (const b of L.bots) dot(b.d, b.color, 4); if (L.pbTrace && L.laps === 0) dot(ghostD(L), "#9e9e9e", 4); dot(L.d, cfg.jersey || "#1f8a5b", 6);
   g.fillStyle = fg; g.font = `${11 * dpr}px "IBM Plex Sans", sans-serif`; g.fillText(`${(R.len / 1000).toFixed(1)} km · ${Math.round(R.climb)} m climbing · lap ${L.laps + 1}`, 6 * dpr, 13 * dpr);
+}
+
+function drawRaceMini(c, L) {          // the race course from start to finish, with every runner on it
+  const r = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), w = c.width = Math.round(r.width * dpr), h = c.height = Math.round(r.height * dpr), g = c.getContext("2d");
+  const N = Math.max(2, Math.floor(w / 2)), els = Array.from({ length: N + 1 }, (_, i) => elevAt(L.R, L.S + L.raceLen * i / N));
+  const lo = Math.min(...els), span = Math.max(15, Math.max(...els) - lo), y = e => h - 6 * dpr - (e - lo) / span * (h - 24 * dpr), X = d => clamp((d - L.S) / L.raceLen, 0, 1) * w;
+  const css = getComputedStyle(c), fg = css.getPropertyValue("--muted") || "#888", acc = css.getPropertyValue("--accent") || "#1f8a5b";
+  const area = () => { g.beginPath(); g.moveTo(0, h); els.forEach((e, i) => g.lineTo(i / N * w, y(e))); g.lineTo(w, h); g.closePath(); g.fill(); };
+  g.fillStyle = fg; g.globalAlpha = .25; area(); g.globalAlpha = 1;
+  g.save(); g.beginPath(); g.rect(0, 0, X(L.d), h); g.clip(); g.fillStyle = acc; g.globalAlpha = .45; area(); g.restore();
+  const dot = (d, col, rad) => { g.fillStyle = col; g.beginPath(); g.arc(X(d), y(elevAt(L.R, clamp(d, L.S, L.S + L.raceLen))), rad * dpr, 0, 7); g.fill(); };
+  for (const b of L.bots) dot(b.d, b.color, 4); dot(L.d, cfg.jersey || "#1f8a5b", 6);
+  g.fillStyle = fg; g.font = `${11 * dpr}px "IBM Plex Sans", sans-serif`; g.textAlign = "left";
+  g.fillText(`${raceName(L.raceLen)} race · ${L.R.name}`, 6 * dpr, 13 * dpr); g.textAlign = "right"; g.fillText("🏁", w - 4 * dpr, 13 * dpr);
 }
 
 /* ---------- finish, rewards, files ---------- */
@@ -481,20 +727,38 @@ const BADGES = [
   ["beat", "Pace partner beaten", "Finish ahead of Steady Sam or faster", r => r.beat],
   ["z2", "Endurance engine", "20 minutes in heart-rate zone 2", r => r.z2 >= 20],
   ["summit", "Summit", "Complete a lap of Summit Road", r => r.route === "summit" && r.laps >= 1],
+  ["racer", "Race finisher", "Cross the finish line of a race", r => r.race && !r.race.dnf],
+  ["podium", "Podium", "Finish a race in the top three", r => r.race?.place <= 3],
+  ["win", "Race winner", "Win a race", r => r.race?.place === 1],
+  ["k5race", "5K racer", "Finish a 5K race", r => r.race && !r.race.dnf && r.race.dist >= 5000],
 ];
+function raceResults(L) {                                         // anyone still out on the course gets a projected time
+  return standings(L).map(r => ({ name: r.name, me: !!r.me, color: r.color, bib: r.bib || null,
+    t: r.fin != null ? r.fin : r.me ? null : L.raceT + (L.raceLen - r.prog) / Math.max(0.5, r.v || 0) }))
+    .sort((a, b) => (a.t ?? Infinity) - (b.t ?? Infinity));
+}
 function endRide() {
   const L = live; if (!L) return; live = null; clearInterval(L.timer); try { L.wake?.release(); } catch {}
   if (dev.control) { if (L.kind === "bike") setGrade(0); else if (cfg.autoIncline) setIncline(0); }
   const km = L.d / 1000, minutes = L.t / 60, hrs = L.samples.filter(s => s.hr), pw = L.samples.filter(s => s.p != null);
   const avg = (a, k) => a.length ? Math.round(a.reduce((t, s) => t + s[k], 0) / a.length) : null;
   const stars = L.wo ? (L.woOn / Math.max(1, Math.min(L.woT, L.woSecs)) >= .85 ? 3 : L.woOn / Math.max(1, L.woT) >= .65 ? 2 : 1) : null;
+  if (L.race && L.count > 0) { showSetup(); msg("Race cancelled before the start."); return; }
+  const race = L.race ? (() => { const res = raceResults(L); return { dist: L.raceLen, name: raceName(L.raceLen), of: res.length, dnf: !L.fin,
+    place: L.fin ? L.fin.place : null, time: L.fin ? L.fin.t : null, left: Math.max(0, L.raceLen - (L.d - L.S)), results: res }; })() : null;
   const r = { id: "ride-" + L.start, at: L.start, route: L.R.id, routeName: L.R.name, kind: L.kind, km, minutes, climb: Math.round(L.climb), laps: L.laps, lapTime: L.lapTime,
     pb: L.pb, beat: L.beat, stars, workout: L.wo?.name || null, kcal: Math.round(inp.kcal && L.kind === "run" ? Math.max(L.kcal, inp.kcal) : L.kcal),
     avgP: avg(pw, "p"), maxP: pw.length ? Math.max(...pw.map(s => s.p)) : null, avgHr: avg(hrs, "hr"), maxHr: hrs.length ? Math.max(...hrs.map(s => s.hr)) : null,
-    avgC: avg(L.samples.filter(s => s.c), "c"), avgBr: avg(L.samples.filter(s => s.br), "br"), z2: L.zoneHr[2] / 60, demo: !!dev.demo };
+    avgC: avg(L.samples.filter(s => s.c), "c"), avgBr: avg(L.samples.filter(s => s.br), "br"), z2: L.zoneHr[2] / 60, demo: !!dev.demo,
+    race, splits: L.splits.map(x => Math.round(x)), splitUnit: uName(), avgSpm: L.kind === "run" ? avg(L.samples.filter(s => s.c), "c") : null };
   if (L.t < 30 || km < 0.05) { showSetup(); msg("Ride was too short to save."); return; }
   // XP: distance, climbing, finishing a lap, PB, workouts
   let xp = Math.round(km * (L.kind === "bike" ? 20 : 60) + L.climb / 5 + L.laps * 100 + (L.pb ? 200 : 0) + (stars ? stars * 50 : 0));
+  if (race && !race.dnf) {
+    xp += 100 + (race.of - race.place) * 10 + (race.place === 1 ? 150 : 0);
+    const key = `race:${race.dist}:${L.kind}`, best = prog.pbs[key];
+    if (!r.demo && (!best || race.time < best.time)) { prog.pbs[key] = { time: race.time, at: Date.now() }; race.pb = true; if (best) xp += 100; }
+  }
   if (r.demo) xp = Math.min(xp, 50);
   const before = levelOf(prog.xp); prog.xp += xp; prog.rides++;
   const newBadges = r.demo ? [] : BADGES.filter(([id, , , test]) => !prog.badges.includes(id) && test(r)).map(b => b[0]);
@@ -522,23 +786,40 @@ function showSummary(r, xp, levelUp, badges) {
   $("rideLive").hidden = true; $("rideSummary").hidden = false; $("rideSetup").hidden = true;
   const lv = levelOf(prog.xp), b = BADGES.filter(x => badges.includes(x[0]));
   $("rideSumBody").innerHTML = `
-    <div class="sumhead"><div><div class="label">${esc(r.routeName)}${r.workout ? ` · ${esc(r.workout)}` : ""}${r.demo ? " · demo" : ""}</div>
-      <h3>${r.km.toFixed(2)} km in ${hms(r.minutes * 60)}</h3></div><div class="xpgain">+${xp} XP${levelUp ? `<span>Level ${lv}!</span>` : ""}</div></div>
+    <div class="sumhead"><div><div class="label">${esc(r.routeName)}${r.race ? ` · ${esc(r.race.name)} race` : ""}${r.workout ? ` · ${esc(r.workout)}` : ""}${r.demo ? " · demo" : ""}</div>
+      <h3>${r.race && !r.race.dnf ? `${ord(r.race.place)} of ${r.race.of} · ${hms(r.race.time)}` : `${distU(r.km * 1000)} in ${hms(r.minutes * 60)}`}</h3></div><div class="xpgain">+${xp} XP${levelUp ? `<span>Level ${lv}!</span>` : ""}</div></div>
+    ${r.race ? raceBlock(r) : ""}
     ${r.pb ? `<p class="pbline">New personal best: ${hms(r.lapTime)}</p>` : r.lapTime ? `<p class="muted">Lap time ${hms(r.lapTime)}</p>` : ""}
     ${r.stars ? `<p class="stars" aria-label="${r.stars} of 3 stars">${"★".repeat(r.stars)}${"☆".repeat(3 - r.stars)} <span>workout accuracy</span></p>` : ""}
     <div class="stats sumstats">
       ${r.kind === "bike" ? `<div class="stat"><b>${r.avgP ?? "–"}</b><span>avg watts</span></div><div class="stat"><b>${r.maxP ?? "–"}</b><span>max watts</span></div>` :
-        `<div class="stat"><b>${pace(r.km / Math.max(.01, r.minutes / 60))}</b><span>avg pace /km</span></div><div class="stat"><b>${(r.km / Math.max(.01, r.minutes / 60)).toFixed(1)}</b><span>avg km/h</span></div>`}
+        `<div class="stat"><b>${paceU(r.km / Math.max(.01, r.minutes / 60))}</b><span>avg pace /${uName()}</span></div><div class="stat"><b>${r.avgSpm ?? "–"}</b><span>avg steps/min</span></div>`}
       <div class="stat"><b>${r.climb}</b><span>m climbed</span></div><div class="stat"><b>${r.avgHr ?? "–"}</b><span>avg heart rate</span></div>
       <div class="stat"><b>${r.avgBr ?? "–"}</b><span>avg breaths/min</span></div><div class="stat"><b>${r.kcal}</b><span>kcal</span></div>
     </div>
     ${chartSvg(lastRide.samples, r.kind === "bike" ? "p" : "v", "var(--accent)", r.kind === "bike" ? "Power (W)" : "Speed (km/h)")}
+    ${r.kind === "run" ? splitsBlock(r) : ""}
     ${chartSvg(lastRide.samples, "hr", "#e53935", "Heart rate (bpm)")}
     ${chartSvg(lastRide.samples, "br", "#42a5f5", "Breathing (br/min)")}
     ${b.length ? `<div class="label" style="margin-top:12px">New badges</div><ul class="badges">${b.map(([, n, d]) => `<li><b>🏅 ${n}</b><span>${d}</span></li>`).join("")}</ul>` : ""}`;
   $("rideStrava").hidden = !stravaReady() || r.demo;
   $("rideStrava").disabled = false; $("rideStrava").textContent = "Upload to Strava";
   renderProgress();
+}
+function raceBlock(r) {
+  const R = r.race, mine = R.results.findIndex(x => x.me);
+  const rows = R.results.map((x, i) => ({ ...x, i })).filter(x => x.i < 5 || Math.abs(x.i - mine) <= 2);
+  let prev = -1;
+  return `${R.dnf ? `<p class="muted">Did not finish · ${distU(R.left)} to go when you stopped.</p>` :
+      `<p class="pbline">${R.place === 1 ? "🥇 Race winner" : R.place === 2 ? "🥈 Second place" : R.place === 3 ? "🥉 Third place" : `Finished ${ord(R.place)}`}${R.pb ? ` · new best ${esc(R.name)} time` : ""}</p>`}
+    <ol class="board results">${rows.map(x => { const gap = x.i - prev > 1 ? `<li class="gap">…</li>` : ""; prev = x.i;
+      return `${gap}<li${x.me ? ' class="me"' : ""}><em>${x.t == null ? "DNF" : x.i + 1}</em><i style="background:${x.color}"></i><span>${esc(x.name)}${x.bib ? ` <small>#${x.bib}</small>` : ""}</span><b>${x.t == null ? "–" : hms(x.t)}</b></li>`; }).join("")}</ol>`;
+}
+function splitsBlock(r) {
+  if (!r.splits?.length) return "";
+  const fast = Math.min(...r.splits), slow = Math.max(...r.splits);
+  return `<div class="label" style="margin-top:12px">Splits per ${r.splitUnit}</div><ul class="splits">${r.splits.map((t, i) =>
+    `<li${t === fast && r.splits.length > 1 ? ' class="best"' : ""}><span>${i + 1}</span><i style="width:${Math.round(40 + 60 * (slow - t) / Math.max(1, slow - fast))}%"></i><b>${hms(t)}</b></li>`).join("")}</ul>`;
 }
 function showSetup() { $("rideLive").hidden = true; $("rideSummary").hidden = true; $("rideSetup").hidden = false; renderRoutes(); renderProgress(); }
 
@@ -557,6 +838,8 @@ function renderWorkoutChoices() {
   sel.innerHTML = WORKOUTS[kind].map(w => `<option value="${w.id}">${esc(w.name)} · ${Math.round(w.steps.reduce((t, s) => t + s[0], 0) / 60)} min</option>`).join("");
   if ([...sel.options].some(o => o.value === was)) sel.value = was;
   $("rideWorkout").hidden = $("rideMode").value !== "workout";
+  $("rideRaceDist").hidden = $("rideMode").value !== "event";
+  const note = $("rideRaceNote"); if (note) note.hidden = $("rideMode").value !== "event";
 }
 function renderProgress() {
   const lv = levelOf(prog.xp), a = xpFor(lv), b = xpFor(lv + 1);
@@ -567,12 +850,14 @@ function renderProgress() {
   $("rideLevel").querySelectorAll(".jerseys button").forEach(bt => bt.onclick = () => { cfg.jersey = bt.dataset.c; save(SET_KEY, cfg); renderProgress(); });
 }
 function renderSettings() {
-  for (const k of ["weight", "age", "maxHr", "ftp", "easyKmh", "difficulty", "maxIncline"]) { const el = $("rs_" + k); if (el) el.value = cfg[k] || ""; }
+  if ($("rs_units")) $("rs_units").value = cfg.units;
+  if (cfg.raceDist && [...$("rideRaceDist").options].some(o => +o.value === +cfg.raceDist)) $("rideRaceDist").value = cfg.raceDist;
+  for (const k of ["weight", "age", "maxHr", "ftp", "easyKmh", "difficulty", "maxIncline", "footCal"]) { const el = $("rs_" + k); if (el) el.value = cfg[k] || ""; }
   for (const k of ["control", "autoIncline", "voice"]) { const el = $("rs_" + k); if (el) el.checked = !!cfg[k]; }
   $("rs_hint").textContent = `Using max heart rate ${maxHr()} bpm and FTP ${ftp()} W${cfg.ftp ? "" : " (estimated)"}.`;
 }
 export function initRide() {
-  $("rideMachine").onclick = connectMachine; $("rideHr").onclick = connectHr;
+  $("rideMachine").onclick = connectMachine; $("rideHr").onclick = connectHr; $("rideFoot").onclick = connectFoot;
   $("rideDemoBike").onclick = () => { startDemo("bike"); renderRoutes(); }; $("rideDemoRun").onclick = () => { startDemo("run"); renderRoutes(); };
   $("rideMode").onchange = renderWorkoutChoices;
   $("rideStart").onclick = startRide;
@@ -586,7 +871,7 @@ export function initRide() {
   $("rideFull").onclick = () => { const el = $("rideStage"); (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.())?.catch?.(() => {}); };
   $("rideSettings").addEventListener("change", e => {
     const el = e.target, k = el.id.replace("rs_", ""); if (!(k in DEF)) return;
-    cfg[k] = el.type === "checkbox" ? el.checked : el.value === "" ? 0 : +el.value;
+    cfg[k] = el.type === "checkbox" ? el.checked : el.tagName === "SELECT" ? el.value : el.value === "" ? (k === "footCal" ? 100 : 0) : +el.value;
     if (k === "autoIncline" && el.checked) msg("Auto-incline changes your treadmill's incline to match the route. FormIQ never changes the belt speed. Keep the safety clip attached.");
     save(SET_KEY, cfg); renderSettings();
   });
