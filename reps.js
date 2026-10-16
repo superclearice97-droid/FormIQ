@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=27";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=28";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */

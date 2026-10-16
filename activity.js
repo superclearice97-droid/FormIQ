@@ -2,7 +2,7 @@
    Strava with the user's own API app, FitShow/FTMS treadmills and bikes over Bluetooth).
    Everything is stored on this device. Network use: Strava only, and only after the user connects it. */
 
-import "./secure.js?v=27";
+import "./secure.js?v=28";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const KEY = "formiq.activity.v1", STRAVA = "formiq.strava.v1";

@@ -1,15 +1,15 @@
 /* FormIQ main script: workout tracking, tabs, consent and app wiring. */
-import "./secure.js?v=27";
+import "./secure.js?v=28";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
-import { initFood } from "./food.js?v=27";
-import { initAI } from "./ai.js?v=27";
-import { initActivity } from "./activity.js?v=27";
-import { initRide } from "./ride.js?v=27";
-import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=27";
-import { evaluate, createGuide } from "./guide.js?v=27";
-import { COACH } from "./coach-data.js?v=27";
-import { createBuddy, setLook, getLook } from "./buddy3d.js?v=27";
-import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, TOPS, BOTTOMS, DEFAULT_LOOK, randomLook, saveLook, loadLook } from "./looks.js?v=27";
+import { initFood } from "./food.js?v=28";
+import { initAI } from "./ai.js?v=28";
+import { initActivity } from "./activity.js?v=28";
+import { initRide } from "./ride.js?v=28";
+import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=28";
+import { evaluate, createGuide } from "./guide.js?v=28";
+import { COACH } from "./coach-data.js?v=28";
+import { createBuddy, setLook, getLook } from "./buddy3d.js?v=28";
+import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, TOPS, BOTTOMS, DEFAULT_LOOK, randomLook, saveLook, loadLook } from "./looks.js?v=28";
 
 const $ = id => document.getElementById(id);
 const video=$("video"), canvas=$("canvas"), ctx=canvas.getContext("2d");

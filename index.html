@@ -7,7 +7,7 @@
 <title>FormIQ</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://world.openfoodfacts.org https://api.anthropic.com https://generativelanguage.googleapis.com https://www.strava.com https://api.github.com; img-src 'self' data: blob: https://images.openfoodfacts.org https://static.openfoodfacts.org; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<script src="native.js?v=27"></script>
+<script src="native.js?v=28"></script>
 <style>
 @font-face{font-family:"Barlow Condensed";font-weight:800;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
 @font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(vendor/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
@@ -177,6 +177,23 @@ details{margin-top:10px}details summary{cursor:pointer;font-weight:600;font-size
 .hudgrade{background:rgba(8,12,10,.62);color:#fff;border-radius:10px;padding:6px 10px;font:800 20px/1 var(--display)}
 .hudgrade[data-steep="up"]{background:rgba(196,60,60,.85)}.hudgrade[data-steep="down"]{background:rgba(21,101,192,.85)}
 .hudwarn{position:absolute;left:50%;top:40%;transform:translateX(-50%);background:rgba(196,60,60,.92);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600}
+.hudgrade small{display:block;font:600 11px/1.2 var(--sans,inherit);opacity:.85;margin-top:2px}
+.hudrace{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:min(46%,300px);background:rgba(8,12,10,.66);color:#fff;border-radius:12px;padding:6px 10px;display:grid;gap:3px;pointer-events:none;line-height:1.1}
+.hudrace b{font:800 clamp(22px,4.2vw,36px)/1 var(--display);font-variant-numeric:tabular-nums}.hudrace b small{font-size:.55em;opacity:.75}.hudrace>span{font-size:12px;opacity:.9}
+.rbar{position:relative;height:6px;border-radius:3px;background:rgba(255,255,255,.22);margin:2px 0}.rbar i{position:absolute;left:0;top:0;bottom:0;background:#fff;border-radius:3px}
+.rbar em{position:absolute;top:-1px;width:4px;height:8px;border-radius:2px;margin-left:-2px;opacity:.9}
+.rgaps{display:grid;font-size:11px;font-variant-numeric:tabular-nums;opacity:.92}.rgaps span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:560px){.hudrace{width:52%;padding:4px 8px}.rgaps{display:none}}
+.hudcount{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:800 clamp(64px,16vw,150px)/1 var(--display);color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.6);pointer-events:none}
+.hudresult{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(86%,320px);background:rgba(8,12,10,.82);color:#fff;border-radius:14px;padding:12px 16px;display:grid;gap:4px;text-align:center}
+.hudresult b{font:800 clamp(30px,6vw,48px)/1 var(--display)}.hudresult ol{list-style:none;margin:6px 0;padding:0;display:grid;gap:3px;text-align:left;font-size:13px}
+.hudresult li{display:flex;gap:6px;align-items:center}.hudresult li i{width:9px;height:9px;border-radius:50%}.hudresult li em{margin-left:auto;font-style:normal;font-variant-numeric:tabular-nums}
+.hudresult li.me{font-weight:700}.hudresult small{opacity:.8}
+.board li em{font-style:normal;width:1.6em;color:var(--muted);font-variant-numeric:tabular-nums}.board li.gap{justify-content:center;color:var(--muted);line-height:.6}
+.board.results{margin:10px 0}
+.splits{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;font-size:13px}.splits li{display:grid;grid-template-columns:2em 1fr 4.5em;align-items:center;gap:8px}
+.splits li i{display:block;height:8px;border-radius:4px;background:var(--accent);opacity:.55}.splits li b{text-align:right;font-variant-numeric:tabular-nums}
+.splits li.best i{opacity:1}.splits li.best b{color:var(--accent)}
 .hudbtns{position:absolute;right:10px;bottom:10px}.hudbtns button{background:rgba(8,12,10,.55);color:#fff;border:0;font-size:18px;padding:6px 10px}
 .hudgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
 @media (max-width:560px){.hudgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -353,11 +370,13 @@ footer a{color:var(--muted)}
           <div class="controls">
             <button class="primary" id="rideMachine">Connect bike or treadmill</button>
             <button id="rideHr">Connect heart-rate strap</button>
+            <button id="rideFoot">Connect foot pod</button>
           </div>
           <div class="controls"><button id="rideDemoBike">Try demo bike</button><button id="rideDemoRun">Try demo treadmill</button></div>
           <div id="rideDevices"></div>
           <p class="muted" id="rideKindNote"></p>
           <p class="muted">Works with FitShow and other smart treadmills, bikes and trainers that use the standard Bluetooth fitness-machine protocol. Breathing rate needs a chest strap that sends beat-to-beat data (for example Polar H10, Garmin HRM, Wahoo TICKR).</p>
+          <p class="muted">No smart treadmill? Clip a Bluetooth running foot pod to your shoe (for example Stryd or Polar Stride) and run on any treadmill. Pods that measure running power show it too.</p>
         </div>
         <div class="panel">
           <div class="label">2 · Choose a route</div>
@@ -365,15 +384,21 @@ footer a{color:var(--muted)}
           <div class="routes" id="rideRoutes"></div>
         </div>
         <div class="panel conn">
-          <div class="label">3 · How do you want to ride?</div>
+          <div class="label">3 · How do you want to ride or run?</div>
           <div class="formrow">
             <select id="rideMode" aria-label="Ride mode">
               <option value="free">Free ride (race your best time)</option>
-              <option value="race">Race the pace partners</option>
+              <option value="event">Race: start pen, finish line and 13 rivals</option>
+              <option value="race">Pace partners</option>
               <option value="workout">Structured workout</option>
             </select>
             <select id="rideWorkout" aria-label="Workout" hidden></select>
+            <select id="rideRaceDist" aria-label="Race distance" hidden>
+              <option value="1000">1 km sprint</option><option value="3000">3 km</option><option value="5000" selected>5K</option>
+              <option value="10000">10K</option><option value="21097">Half marathon</option>
+            </select>
           </div>
+          <p class="muted" id="rideRaceNote" hidden>Everyone lines up in the start pen for a 10-second countdown. Your rivals are spread around your comfortable speed, and some go out hard while others save a kick for the end. Gun time counts, so don't stop.</p>
           <button class="primary big" id="rideStart" disabled>Start</button>
           <p id="rideMsg" role="status"></p>
         </div>
@@ -389,7 +414,10 @@ footer a{color:var(--muted)}
             <label class="field" for="rs_ftp">FTP (watts) <input id="rs_ftp" type="number" min="50" max="600" placeholder="auto"></label>
             <label class="field" for="rs_easyKmh">Comfortable treadmill speed (km/h) <input id="rs_easyKmh" type="number" min="2" max="20" step="0.5"></label>
             <label class="field" for="rs_difficulty">Hill feel on bikes (%) <input id="rs_difficulty" type="number" min="0" max="100" step="10"></label>
+            <label class="field" for="rs_units">Units <select id="rs_units"><option value="metric">Kilometres</option><option value="imperial">Miles</option></select></label>
+            <label class="field" for="rs_footCal">Foot pod calibration (%) <input id="rs_footCal" type="number" min="80" max="120" step="0.5"></label>
           </div>
+          <p class="muted">If the foot pod's pace doesn't match your treadmill, set calibration to treadmill speed ÷ FormIQ speed × 100 (for example 10.0 ÷ 9.6 × 100 = 104).</p>
           <p class="muted" id="rs_hint"></p>
           <label class="check" for="rs_control"><input type="checkbox" id="rs_control"> Let FormIQ set my bike's resistance for hills and workouts</label>
           <label class="check" for="rs_autoIncline"><input type="checkbox" id="rs_autoIncline"> Treadmill auto-incline to match the route (never changes speed)</label>
@@ -403,6 +431,9 @@ footer a{color:var(--muted)}
       <div class="stage" id="rideStage">
         <canvas id="rideCanvas"></canvas>
         <div class="hudtop"><div id="hudMain" class="hudmain"></div><div id="hudGrade" class="hudgrade"></div></div>
+        <div id="hudRace" class="hudrace" hidden></div>
+        <div id="hudCount" class="hudcount" hidden aria-live="assertive"></div>
+        <div id="hudResult" class="hudresult" hidden role="status"></div>
         <div id="hudWarn" class="hudwarn" hidden>Heart rate very high. Ease off.</div>
         <div class="hudbtns"><button id="rideFull" aria-label="Full screen">⛶</button></div>
       </div>
@@ -564,6 +595,6 @@ footer a{color:var(--muted)}
   </div>
 </div>
 
-<script type="module" src="app.js?v=27"></script>
+<script type="module" src="app.js?v=28"></script>
 </body>
 </html>
