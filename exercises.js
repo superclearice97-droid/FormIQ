@@ -356,7 +356,7 @@ export const EX = {
   jog: A({ name: "Jog in place", cat: "cardio", view: "front or side", thr: 0.06, full: 0.3, target: 60,
     how: "Jog on the spot, lifting your knees a little. Each step counts.",
     value: c => c.g.kneeDiff() }),
-  highknees: A({ name: "High knees", cat: "cardio", view: "front or side", thr: 0.45, full: 1.0, target: 40, quick: true, lifts: true, liftCount: 0.6,
+  highknees: A({ name: "High knees", cat: "cardio", view: "front or side", thr: 0.45, full: 1.0, target: 40, quick: true, lifts: true, liftCount: 0.6, sway: true,
     how: "Run on the spot, driving each knee up to hip height. Each knee counts.",
     value: c => c.g.liftDiff() }),
   jumprope: S({ name: "Jump rope", cat: "cardio", view: "front or side", dir: "up", travel: 0.035, full: 0.12, target: 50, slowRest: true, minDur: 80, maxDur: 700,

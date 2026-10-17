@@ -5,7 +5,7 @@
 
    Directions are given as you face the camera ("step to your left"), which is the same whether or not the
    preview is mirrored. On screen an arrow points the way your image needs to move. */
-import { VIS } from "./exercises.js?v=30";
+import { VIS } from "./exercises.js?v=31";
 
 const ok = (p) => p && (p.visibility ?? 1) > VIS;
 /* what the camera has to see, per exercise level (see "frame" in exercises.js). Each group needs at least one of its landmarks,

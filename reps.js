@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=30";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=31";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */
@@ -177,7 +177,7 @@ export function createTracker(exKey = "squat") {
 
     if (def.kind === "hold") return holdStep(g, t, postureOk, ready, common);
     // knee lifts read the unsmoothed points: a fast lift is up for only a few frames and smoothing would flatten it
-    if (def.lifts) return liftStep(geometry(rawImg, rawWorld, asp, T), t, postureOk, ready, common);
+    if (def.lifts) return liftStep(geometry(rawImg, rawWorld, asp, T), g, t, postureOk, ready, common);
 
     const det = st.det;
     const resting = def.kind === "swing" ? det.phase === "top" && postureOk : postureOk;
@@ -304,14 +304,23 @@ export function createTracker(exKey = "squat") {
      frame or three mid-lift. So: a lift counts as soon as one frame clearly shows it; the same knee can't count again
      until it has been down for a moment (flicker inside one lift is merged); and a lift that appears right as the other
      knee is up is the model mixing up the legs, not a new lift. */
-  function liftStep(g, t, postureOk, ready, common) {
-    const S = st.lift || (st.lift = { lastUp: [-1e9, -1e9], on: [false, false], ok: [false, false], peak: [0, 0], bar: [0, 0], seen: t });
+  function liftStep(g, gs, t, postureOk, ready, common) {   // g: unsmoothed points, gs: smoothed
+    const S = st.lift || (st.lift = { lastUp: [-1e9, -1e9], on: [false, false], ok: [false, false], peak: [0, 0], bar: [0, 0], seen: t,
+      step: [-1e9, -1e9], swayX: null, sway: 0, lastT: t });
     const P = POSTURES[def.posture] || POSTURES.any;
     const UP = def.liftOn ?? 0.25, COUNT = def.liftCount ?? 0.35, MERGE = 450, SWAP = 200;
     const v = [g.lift("l"), g.lift("r")];
     if (v[0] == null || v[1] == null) return { ...common, state: t - S.seen > 600 ? "lost" : "hold" };
     S.seen = t;
+    const dt = Math.min(200, t - S.lastT); S.lastT = t;
     let done = null;
+    // one step on side s (0 = left knee up). A knee lift and a hip sway can report the same step: merge them.
+    const step = (s, peak, seen) => {
+      if (t - S.step[s] < MERGE || !postureOk || !ready) { if (seen) S.seenPeak = Math.max(S.seenPeak || 0, peak); S.step[s] = Math.max(S.step[s], t - MERGE + 150); return; }
+      S.step[s] = t;
+      const rom = seen ? Math.max(0, Math.min(1, peak / def.full)) : 0.6, faults = rom < 0.7 ? ["Lift your knees higher"] : [];
+      done = { score: Math.round(rom * 100), faults, dur: 0.5, rom: Math.round(rom * 100), side: s ? "R" : "L" };
+    };
     for (const s of [0, 1]) {
       const o = 1 - s, above = v[s] >= UP && v[o] < 0.2;          // one knee up, the other one down
       if (above && !S.on[s]) {          // this knee goes up
@@ -322,12 +331,21 @@ export function createTracker(exKey = "squat") {
       }
       if (above) {
         S.peak[s] = Math.max(S.peak[s], v[s]); S.lastUp[s] = t;
-        if (S.ok[s] && S.peak[s] >= S.bar[s] && postureOk && ready) {
-          const rom = Math.max(0, Math.min(1, S.peak[s] / def.full)), faults = rom < 0.6 ? ["Lift your knee higher"] : [];
-          done = { score: Math.round(rom * 100), faults, dur: 0.5, rom: Math.round(rom * 100), side: s ? "R" : "L" };
-          S.ok[s] = false;
-        }
+        if (S.ok[s] && S.peak[s] >= S.bar[s]) { step(s, S.peak[s], true); S.ok[s] = false; }
       } else if (v[s] < UP) S.on[s] = false;
+    }
+    /* Running in place fast, the model often can't see the knees rise at all (motion blur), but the hips still shift
+       toward the standing leg on every step. Each swing of the hips to one side is a step of the other knee. */
+    // Only trusted while the knees are being seen to lift now and then, so walking or jogging doesn't count.
+    if (Math.max(v[0], v[1]) >= 0.35) S.anyLift = t;
+    if (def.sway && gs.hp && gs.T) {
+      const k = 1 - Math.exp(-dt / 900);
+      S.swayX = S.swayX == null ? gs.hp.x : S.swayX + (gs.hp.x - S.swayX) * k;
+      let side = (gs.hp.x - S.swayX) * gs.asp / gs.T; const TH = def.swayOn ?? 0.035;
+      if (!(t - (S.anyLift ?? -1e9) < 3500)) side = 0;
+      // hips toward the left of the picture (x smaller) = weight on the right leg = left knee up, as you face the camera
+      if (side < -TH && S.sway !== -1) { if (S.sway) step(0, 0, false); S.sway = -1; }
+      else if (side > TH && S.sway !== 1) { if (S.sway) step(1, 0, false); S.sway = 1; }
     }
     const cur = Math.max(v[0], v[1]);
     return {
