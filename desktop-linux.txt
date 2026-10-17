@@ -1,20 +1,20 @@
-desktop linux run 6 Fri Oct 16 22:48:21 UTC 2026
+desktop linux run 7 Sat Oct 17 12:50:37 UTC 2026
 == install (tail)
-v1.7.6
+v1.7.7
 npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
-npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
-added 284 packages in 8s
-44.8.0
+added 284 packages in 6s
+44.9.0
 == build (tail)
   • electron-builder  version=26.15.3 os=6.17.0-1022-azure
   • loaded configuration  file=package.json ("build" field)
-  • executing @electron/rebuild  electronVersion=44.8.0 arch=x64 buildFromSource=false workspaceRoot=/home/runner/work/FormIQ/FormIQ/desktop projectDir=./ appDir=./
+  • executing @electron/rebuild  electronVersion=44.9.0 arch=x64 buildFromSource=false workspaceRoot=/home/runner/work/FormIQ/FormIQ/desktop projectDir=./ appDir=./
   • installing native dependencies  arch=x64
   • completed installing native dependencies
-  • packaging       platform=linux arch=x64 electron=44.8.0 appOutDir=dist/linux-unpacked
+  • packaging       platform=linux arch=x64 electron=44.9.0 appOutDir=dist/linux-unpacked
   • downloaded      label=electron progress=100%
   • downloaded electron zip extracted successfully  output=/home/runner/work/FormIQ/FormIQ/desktop/dist/linux-unpacked
   • searching for node modules  pm=npm searchDir=/home/runner/work/FormIQ/FormIQ/desktop
@@ -25,16 +25,16 @@ added 284 packages in 8s
   • building        target=tar.gz arch=x64 file=dist/FormIQ-linux-x64.tar.gz
   • building        target=zip arch=x64 file=dist/FormIQ-linux-x64.zip
   • electron uses desktopName as app_id / WM_CLASS for window association. Without it desktop environments may not link running windows to this .desktop entry. Set desktopName in package.json and linux.syncDesktopName: true to fix.  reason=desktopName is not set in package.json docs=https://www.electron.build/linux#window-association-desktopname--syncdesktopname
-  • downloaded      label=appimage-12.0.1.7z progress=100%
   • downloaded      label=7zip-linux-x64.tar.gz progress=100%
+  • downloaded      label=appimage-12.0.1.7z progress=100%
   • building embedded block map  file=dist/FormIQ-linux-x86_64.AppImage
   • building        target=deb arch=x64 file=dist/FormIQ-linux-amd64.deb
   • electron uses desktopName as app_id / WM_CLASS for window association. Without it desktop environments may not link running windows to this .desktop entry. Set desktopName in package.json and linux.syncDesktopName: true to fix.  reason=desktopName is not set in package.json docs=https://www.electron.build/linux#window-association-desktopname--syncdesktopname
   • downloaded      label=fpm-1.17.0-ruby-3.4.3-linux-amd64.7z progress=100%
 == smoke
-[2933:1016/224818.521060:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
-[2933:1016/224818.548966:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
-[2933:1016/224818.571804:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
-[2933:1016/224818.572246:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
-[2933:1016/224818.579738:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[2703:1017/125034.587000:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[2703:1017/125034.606668:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[2703:1017/125034.625446:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
+[2703:1017/125034.626001:ERROR:dbus/bus.cc:406] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+[2703:1017/125034.631231:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type: 
 FORMIQ_SMOKE {"cam":true,"exercises":5,"desktop":true,"webgl":false,"secure":true}
