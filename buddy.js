@@ -3,8 +3,8 @@
    pose = { t: torso lean (0 upright, + leans right), h: head tilt, a:[armL upper, lower, armR upper, lower],
             l:[legL thigh, shin, legR thigh, shin], x: hip offset, y: lift off the ground, sh: shoulder lift }
    In side views index 0/1 is the far limb and 2/3 the near limb, the character faces right. */
-import { DEMOS } from "./demos.js?v=28";
-import { CAPS, HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, DEFAULT_LOOK, loadLook, sanitizeLook } from "./looks.js?v=28";
+import { DEMOS } from "./demos.js?v=29";
+import { CAPS, HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, DEFAULT_LOOK, loadLook, sanitizeLook } from "./looks.js?v=29";
 
 const NS = "http://www.w3.org/2000/svg";
 const W = 220, H = 170, GROUND = 148, BAR = 26;

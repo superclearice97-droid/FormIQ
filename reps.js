@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=28";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=29";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */
@@ -51,7 +51,7 @@ export function createTracker(exKey = "squat") {
   const smImg = smoother(), smW = smoother();
   let def = EX[exKey], key = exKey, st, lostSince = 0;
   const newDet = (lo = null) => ({ phase: "top", lo, hi: 0, startedAt: 0, f: {}, extreme: null, anchor: null });
-  const fresh = (keepT) => ({ hist: [], mem: {}, cal: {}, ema: null, vert: null, det: newDet(), armSide: null, upSince: 0, T: keepT ?? null,
+  const fresh = (keepT) => ({ size: null, hist: [], mem: {}, cal: {}, ema: null, vert: null, det: newDet(), armSide: null, upSince: 0, T: keepT ?? null,
     alt: { center: null, side: 0, peak: 0, since: 0, visits: 0, lastT: 0 }, hold: { held: 0, last: 0, secs: 0, good: 0 } });
   st = fresh();
 
@@ -80,6 +80,28 @@ export function createTracker(exKey = "squat") {
     const h = seen(img, [23, 24]) ? mid(P[23], P[24]) : seen(img, [23]) ? P[23] : P[24];
     const dx = (s.x - h.x) * k, dy = s.y - h.y, dz = world ? s.z - h.z : 0;
     return -dy / (Math.hypot(dx, dy, dz) || 1);
+  }
+
+  /* Body size right now, two ways: shoulders-to-hips length and shoulder width. Leaning forward (a squat) shortens the
+     first but not the second; stepping toward or away from the camera changes both. Returns true once, when you have
+     clearly settled at a new distance. */
+  function repositioned(img, asp, t) {
+    if (!seen(img, [11, 12]) || !(seen(img, [23]) || seen(img, [24]))) return false;
+    const s = mid(img[11], img[12]), h = seen(img, [23, 24]) ? mid(img[23], img[24]) : img[seen(img, [23]) ? 23 : 24];
+    const Lnow = Math.hypot((s.x - h.x) * asp, s.y - h.y), Wnow = Math.abs(img[11].x - img[12].x) * asp;
+    const R = st.size || (st.size = { L: Lnow, W: Wnow, n: 0, off: 0 });
+    const rL = Lnow / R.L, frontal = R.W > 0.35 * R.L && Wnow > 0.2 * Lnow, rW = frontal ? Wnow / R.W : null;
+    const far = x => x < 0.78 || x > 1.28;
+    const moved = rW != null ? far(rW) && far(rL) : (rL < 0.65 || rL > 1.55);
+    if (!moved) {
+      R.off = 0;
+      if (st.det.phase === "top") { R.L += (Lnow - R.L) * 0.05; R.W += (Wnow - R.W) * 0.05; }
+      return false;
+    }
+    if (!R.off) R.off = t;
+    if (t - R.off < 350) return false;
+    st.size = { L: Lnow, W: Wnow, n: 0, off: 0 };
+    return true;
   }
 
   // Body size: the longest shoulders-to-hips length seen recently (it looks shorter when you lean or turn).
@@ -125,7 +147,16 @@ export function createTracker(exKey = "squat") {
       return { state: "noperson" };
     }
     st.gapAt = 0; st.seen = true;
+    // a knee or foot the model places outside the picture (below the bottom edge at the bottom of a squat) is a guess:
+    // treat it as unseen so it can't drag the movement around
+    rawImg = rawImg.map((p, i) => i >= 25 && (p.y > 1.0 || p.y < -0.03 || p.x < -0.03 || p.x > 1.03) ? { ...p, visibility: Math.min(p.visibility ?? 1, 0.1) } : p);
     const img = smImg.f(rawImg, t), world = rawWorld ? smW.f(rawWorld, t) : null;
+    if (def.posture === "upright" && repositioned(img, asp, t)) {
+      // you stepped toward or away from the camera: whatever was in progress isn't a rep, and the standing references
+      // (hip height, body size) are relearned at the new distance
+      st.det = newDet(); st.cal = {}; st.mem = {}; st.T = null; st.upSince = t; st.ema = null; st.hist = [];
+      st.alt.side = 0; st.alt.since = 0; st.alt.center = null;
+    }
     const T = torso(img, asp);
     const g = geometry(img, world, asp, T);
     const q = Math.max(...["l", "r"].map(s => ["s", "e", "w", "h", "k", "a"].reduce((t2, n) => t2 + (img[L[s + n]].visibility ?? 0), 0) / 6));
@@ -153,7 +184,7 @@ export function createTracker(exKey = "squat") {
       if (!seen(img, [i, j, k])) return null;
       return world ? g.ang(i, j, k) : g.ang(i, j, k);
     };
-    const ctx = side => ({ g, img, world, asp, side, calib, ang: ang(side), resting, mem: st.mem });
+    const ctx = side => ({ g, img, world, asp, side, calib, ang: ang(side), resting, mem: st.mem, cal: st.cal, t });
 
     let v = null, side = "l";
     if (def.bothArms) {

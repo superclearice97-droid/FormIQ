@@ -4,8 +4,8 @@
    Privacy measures: photo is shrunk to 768 px and re-encoded (drops EXIF, including GPS location);
    every photo needs an explicit "Send" tap; key is kept for this tab only unless the user opts to remember it;
    nothing about the photo is stored except the resulting food estimates. */
-import "./secure.js?v=28";
-import { analyze, addEstimated, showProduct, setMsg } from "./food.js?v=28";
+import "./secure.js?v=29";
+import { analyze, addEstimated, showProduct, setMsg } from "./food.js?v=29";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

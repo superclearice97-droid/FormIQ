@@ -5,7 +5,7 @@
 
    Directions are given as you face the camera ("step to your left"), which is the same whether or not the
    preview is mirrored. On screen an arrow points the way your image needs to move. */
-import { VIS } from "./exercises.js?v=28";
+import { VIS } from "./exercises.js?v=29";
 
 const ok = (p) => p && (p.visibility ?? 1) > VIS;
 /* what the camera has to see, per exercise level (see "frame" in exercises.js). Each group needs at least one of its landmarks,
@@ -42,6 +42,12 @@ export function evaluate(lm, def, asp = 16 / 9, postureOk = true, postureHint = 
     const small = pts.length >= 12 && !atEdge.top;      // nearly all of you is there: only a small step
     const m = atEdge.top && !missing.length ? "Lower the camera or step back a little so your head fits" : `Step back${small ? " a little" : ""} so I can see ${what}`;
     return { ok: false, step: "fit", msg: m, say: m, box };
+  }
+
+  // 1b. room to move: at the bottom of a squat the knees drop and come forward, so they need some space below them
+  if (level === "knees" && !lying && !opts.relax) {
+    const kn = [25, 26].filter(i => ok(lm[i])).map(i => lm[i].y);
+    if (kn.length && Math.max(...kn) > 0.88) return { ok: false, step: "fit", msg: "Step back a little so your knees stay in the picture when you go down", say: "Step back a little so your knees stay in the picture", box };
   }
 
   // 2. distance: big enough to track well, but with some room around you (auto-frame zooms in for you)

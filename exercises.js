@@ -149,25 +149,44 @@ const S = (o) => ({ kind: "swing", posture: "upright", unit: "reps", target: 10,
 const A = (o) => ({ kind: "alt", posture: "upright", unit: "reps", target: 20, center: true, ...o });
 const H = (o) => ({ kind: "hold", posture: "any", unit: "sec", target: 30, ...o });
 
-const squatValue = (c) => {   // depth: 0 standing, ~0.5 hips level with knees. Works from whatever is in the picture.
-  const g = c.g, r = [], th = [];
+/* Squat depth: 0 standing, ~0.5 hips level with knees. Two ways to measure it, picked while you stand between reps
+   (never mid-rep, so the reading can't jump):
+   - legs: hip height over shin length, when knees and ankles are clearly in the picture (best: ignores the camera or
+     you shifting, and how far away you are)
+   - hips: how far the hips drop, in torso lengths, when the knees or feet are at or past the bottom edge. The pose
+     model's guesses for points outside the picture jump around, so they are never used. */
+const squatLegs = (g) => {
+  const r = [];
   for (const [h, k, a] of [[23, 25, 27], [24, 26, 28]]) {
-    if (!g.ok(h, k)) continue;
-    th.push(g.img[k].y - g.img[h].y);
-    if (!g.ok(a)) continue;
+    if (!g.ok(h, k, a)) continue;
     const shin = Math.hypot((g.img[k].x - g.img[a].x) * g.asp, g.img[k].y - g.img[a].y);
     if (shin > 0.03) r.push((g.img[a].y - g.img[h].y) / shin);
   }
-  if (th.length) c.calib("thigh", avg(th), c.resting);   // always learn the standing thigh height
-  if (r.length) {            // knees and ankles: hip height over shin length (best)
-    const ref = c.calib("stand", avg(r), c.resting);
-    return ref ? Math.max(0, 1 - avg(r) / ref) : 0;
-  }
-  if (th.length) {           // feet out of the picture: how far the hips drop toward the knees
-    const ref = c.calib("thigh", avg(th), c.resting, true);
-    return ref ? Math.max(0, 0.5 * (1 - avg(th) / ref)) : 0;
-  }
-  return null;
+  return avg(r);
+};
+const squatThigh = (g) => avg([[23, 25], [24, 26]].map(([h, k]) => g.ok(h, k) ? g.img[k].y - g.img[h].y : null));
+const SQ_MODES = ["legs", "thigh", "hips"];
+const squatValue = (c) => {
+  const g = c.g, m = c.mem, t = c.t ?? 0;
+  if (!g.hp || !g.T || g.hp.y > 0.99) return null;   // hips at or below the bottom edge: too close to tell
+  const raw = { legs: squatLegs(g), thigh: squatThigh(g) };
+  if (g.an) m.ground = g.an.y;
+  raw.hips = (m.ground ?? 1) - g.hp.y;
+  // keep every reference up to date while standing, so a switch never needs a fresh calibration
+  const ref = { legs: c.calib("stand", raw.legs ?? 0, c.resting && raw.legs != null), thigh: c.calib("thigh", raw.thigh ?? 0, c.resting && raw.thigh != null), hips: c.calib("hipUp", raw.hips, c.resting) };
+  const val = { legs: r => Math.max(0, 1 - r / ref.legs), thigh: r => Math.max(0, 0.5 * (1 - r / ref.thigh)), hips: r => Math.max(0, (ref.hips - r) / g.T) * (0.5 / 0.75) };
+  m.streak ||= {}; m.bad ||= {};
+  for (const k of SQ_MODES) m.streak[k] = raw[k] != null ? (m.streak[k] || 0) + 1 : 0;
+  if (raw.thigh != null) m.kneesAt = t;
+  // hips alone only stand in for the knees for a while after they were last seen (so hanging from a bar, or being too
+  // close to see your legs at all, never counts as squats)
+  const usable = k => raw[k] != null && ref[k] != null && !(m.bad[k] > t) && (k !== "hips" || t - (m.kneesAt ?? -1e9) < 10000);
+  if (c.resting || !m.mode) {
+    const pick = SQ_MODES.find(k => usable(k) && m.streak[k] >= 8);
+    if (pick) m.mode = pick; else if (!m.mode) m.mode = SQ_MODES.find(usable) || "hips";
+  } else if (raw[m.mode] == null) m.bad[m.mode] = t + 20000;   // lost those points mid-rep: don't rely on them for a while
+  const k = usable(m.mode) ? m.mode : SQ_MODES.find(usable);
+  return k ? val[k](raw[k]) : null;
 };
 const leanFault = (f) => f.maxLean > 50 ? ["Chest up, too much forward lean"] : [];
 const squatExtra = (c) => {

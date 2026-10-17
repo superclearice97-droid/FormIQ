@@ -3,9 +3,9 @@
    Live power, cadence, speed/pace, heart rate (with zones) and breathing rate (estimated from a chest strap's
    beat-to-beat data). Bikes: optional hill simulation and ERG mode over FTMS. Treadmills: FormIQ never changes
    belt speed; incline follows the route only if the rider turns that on. Everything stays on this device. */
-import "./secure.js?v=28";
-import { parseFTMS, logWorkout, stravaReady, stravaUploadTcx, saveFile, StepDetector } from "./activity.js?v=28";
-import { CameraStepDetector, StepRate, StepQueue, kmhFrom } from "./runtrack.js?v=28";
+import "./secure.js?v=29";
+import { parseFTMS, logWorkout, stravaReady, stravaUploadTcx, saveFile, StepDetector } from "./activity.js?v=29";
+import { CameraStepDetector, StepRate, StepQueue, kmhFrom } from "./runtrack.js?v=29";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
