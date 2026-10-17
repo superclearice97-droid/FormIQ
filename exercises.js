@@ -42,6 +42,15 @@ export function geometry(img, world, asp, T) {
     // knee height: ~0 standing, ~1 thigh level with hip
     kneeUp: s => { const [h, k] = s === "l" ? [23, 25] : [24, 26]; return ok(h, k) ? (img[h].y - img[k].y) / T + 0.9 : null; },
     kneeDiff: () => { const a = g.kneeUp("l"), b = g.kneeUp("r"); return a != null && b != null ? a - b : null; },
+    /* how high one knee is lifted, 0 standing ~1 thigh level. Two independent readings must agree: the knee's height
+       in the picture and the 3D hip angle. Facing the camera a lifted thigh points at the lens and barely rises in the
+       picture, which the 3D angle still sees; a one-frame glitch rarely fools both. */
+    lift: s => {
+      const up = g.kneeUp(s); if (up == null) return null;
+      const a2 = up / 0.6, ha = world ? g.hip(s) : null;
+      return ha != null ? Math.min(a2, (170 - ha) / 60) : a2;
+    },
+    liftDiff: () => { const a = g.lift("l"), b = g.lift("r"); return a != null && b != null ? a - b : null; },
     // torso turn relative to the hips (needs the 3D pose); +/- = left/right
     twist: () => {
       if (!world || !ok(11, 12, 23, 24)) return null;
@@ -330,26 +339,26 @@ export const EX = {
   bridge: S({ name: "Hip lift (glute bridge)", cat: "legs", view: "side", dir: "up", travel: 18, full: 40, posture: "lying",
     how: "Lie on your back, knees bent, feet flat. Lift your hips until your body is straight from shoulders to knees, then lower.",
     value: c => c.g.bridge() }),
-  kneelift: A({ name: "Knee lift", cat: "legs", view: "front or side", thr: 0.3, full: 0.8,
+  kneelift: A({ name: "Knee lift", cat: "legs", view: "front or side", thr: 0.35, full: 0.9, quick: true, lifts: true,
     how: "Stand tall. Lift one knee to hip height, lower it, then the other.",
-    value: c => c.g.kneeDiff() }),
+    value: c => c.g.liftDiff() }),
   sidestep: A({ name: "Side step", cat: "legs", view: "front", thr: 0.35, full: 0.8,
     how: "Step to the side and bring your feet together, then step the other way. Raise your arms as you step if you like.",
     value: c => c.g.hipX() }),
   armraisecombo: S({ name: "Arm raise combo", cat: "legs", view: "front", dir: "up", travel: 0.8, full: 1.4,
     how: "Stand tall. Raise both arms from your sides to straight overhead and lower, keeping a steady rhythm.",
     value: c => c.g.armsUp() }),
-  kneeliftcombo: A({ name: "Knee lift & arm raise", cat: "legs", view: "front", thr: 0.3, full: 0.8,
+  kneeliftcombo: A({ name: "Knee lift & arm raise", cat: "legs", view: "front", thr: 0.35, full: 0.9, quick: true, lifts: true,
     how: "Lift one knee while raising your arms overhead, lower both, then switch knees.",
-    value: c => c.g.kneeDiff() }),
+    value: c => c.g.liftDiff() }),
 
   /* ----- cardio ----- */
   jog: A({ name: "Jog in place", cat: "cardio", view: "front or side", thr: 0.06, full: 0.3, target: 60,
     how: "Jog on the spot, lifting your knees a little. Each step counts.",
     value: c => c.g.kneeDiff() }),
-  highknees: A({ name: "High knees", cat: "cardio", view: "front or side", thr: 0.35, full: 0.9, target: 40,
+  highknees: A({ name: "High knees", cat: "cardio", view: "front or side", thr: 0.45, full: 1.0, target: 40, quick: true, lifts: true, liftCount: 0.6,
     how: "Run on the spot, driving each knee up to hip height. Each knee counts.",
-    value: c => c.g.kneeDiff() }),
+    value: c => c.g.liftDiff() }),
   jumprope: S({ name: "Jump rope", cat: "cardio", view: "front or side", dir: "up", travel: 0.035, full: 0.12, target: 50, slowRest: true, minDur: 80, maxDur: 700,
     how: "Small, quick hops on both feet, with or without a rope. Each jump counts. Keep your whole body, feet included, in view.",
     value: c => c.g.feetUp(c.mem) }),

@@ -13,7 +13,7 @@
      hanging) and nothing counts outside it. Planted feet (or hands) must stay put during a rep, so walking,
      kneeling down or stepping toward the camera never counts.
 */
-import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=29";
+import { EX, CATS, CIRCUITS, POSTURES, L, VIS, seen, mid, geometry } from "./exercises.js?v=30";
 export { EX, CATS, CIRCUITS, VIS };
 
 /* One Euro filter: removes jitter when still, stays responsive when moving fast */
@@ -176,6 +176,8 @@ export function createTracker(exKey = "squat") {
     const common = { img, quality: q, framing: framing(img, def), postureOk, postureHint: P.hint };
 
     if (def.kind === "hold") return holdStep(g, t, postureOk, ready, common);
+    // knee lifts read the unsmoothed points: a fast lift is up for only a few frames and smoothing would flatten it
+    if (def.lifts) return liftStep(geometry(rawImg, rawWorld, asp, T), t, postureOk, ready, common);
 
     const det = st.det;
     const resting = def.kind === "swing" ? det.phase === "top" && postureOk : postureOk;
@@ -212,8 +214,9 @@ export function createTracker(exKey = "squat") {
     // median of the last three readings: a single bad frame (a model glitch) can't move the count. Only used when
     // those frames are close together (about 15 fps or better); at lower rates it would clip real peaks.
     const hist = st.hist || (st.hist = []); hist.push([t, v]); if (hist.length > 3) hist.shift();
-    if (hist.length === 3 && hist[2][0] - hist[0][0] < 170) v = hist.map(h => h[1]).sort((a, b) => a - b)[1];
-    st.ema = st.ema == null ? v : st.ema * 0.35 + v * 0.65;
+    if (hist.length === 3 && hist[2][0] - hist[0][0] < 170 && !def.quick) v = hist.map(h => h[1]).sort((a, b) => a - b)[1];
+    // quick moves (a knee lift can be up for two or three frames): no extra smoothing, both cues already have to agree
+    st.ema = def.quick || st.ema == null ? v : st.ema * 0.35 + v * 0.65;
     const val = st.ema;
     if (def.kind === "alt") return altStep(val, t, postureOk, ready, vert, common);
 
@@ -275,7 +278,7 @@ export function createTracker(exKey = "squat") {
       else if (A.side) {
         A.peak = Math.max(A.peak, A.side * d);
         if (A.side * d < def.thr * 0.5) {           // came back from that side: one rep
-          if (t - A.since >= 120 && t - A.lastT >= 150) {
+          if (t - A.since >= (def.quick ? 0 : 120) && t - A.lastT >= 150) {
             A.visits++;
             if (!def.perPair || A.visits % 2 === 0) {
               const rom = Math.max(0, Math.min(1, A.peak / def.full)), faults = [];
@@ -293,6 +296,44 @@ export function createTracker(exKey = "squat") {
       ...common, state: postureOk ? "ok" : "posture", hint: postureOk ? null : P.hint,
       phase: !ready ? "calibrating" : A.side ? "bottom" : "top", value: v, label: fmt(d),
       prog: Math.max(0, Math.min(1, Math.abs(d) / def.full)), rep: done,
+    };
+  }
+
+  /* ----- knee lifts (and high knees): each lift of either knee is one rep ----------------------------------------
+     Fast lifts are only up for a few frames, and the pose model often drops the lifted leg back to "standing" for a
+     frame or three mid-lift. So: a lift counts as soon as one frame clearly shows it; the same knee can't count again
+     until it has been down for a moment (flicker inside one lift is merged); and a lift that appears right as the other
+     knee is up is the model mixing up the legs, not a new lift. */
+  function liftStep(g, t, postureOk, ready, common) {
+    const S = st.lift || (st.lift = { lastUp: [-1e9, -1e9], on: [false, false], ok: [false, false], peak: [0, 0], bar: [0, 0], seen: t });
+    const P = POSTURES[def.posture] || POSTURES.any;
+    const UP = def.liftOn ?? 0.25, COUNT = def.liftCount ?? 0.35, MERGE = 450, SWAP = 200;
+    const v = [g.lift("l"), g.lift("r")];
+    if (v[0] == null || v[1] == null) return { ...common, state: t - S.seen > 600 ? "lost" : "hold" };
+    S.seen = t;
+    let done = null;
+    for (const s of [0, 1]) {
+      const o = 1 - s, above = v[s] >= UP && v[o] < 0.2;          // one knee up, the other one down
+      if (above && !S.on[s]) {          // this knee goes up
+        S.on[s] = true;
+        // flicker inside the same lift continues it; a lift that starts just as the other knee comes down has to be a
+        // clear one (the model sometimes swaps the legs for a frame)
+        if (t - S.lastUp[s] >= MERGE) { S.peak[s] = 0; S.ok[s] = true; S.bar[s] = t - S.lastUp[o] < SWAP ? Math.max(0.6, COUNT) : COUNT; }
+      }
+      if (above) {
+        S.peak[s] = Math.max(S.peak[s], v[s]); S.lastUp[s] = t;
+        if (S.ok[s] && S.peak[s] >= S.bar[s] && postureOk && ready) {
+          const rom = Math.max(0, Math.min(1, S.peak[s] / def.full)), faults = rom < 0.6 ? ["Lift your knee higher"] : [];
+          done = { score: Math.round(rom * 100), faults, dur: 0.5, rom: Math.round(rom * 100), side: s ? "R" : "L" };
+          S.ok[s] = false;
+        }
+      } else if (v[s] < UP) S.on[s] = false;
+    }
+    const cur = Math.max(v[0], v[1]);
+    return {
+      ...common, state: postureOk ? "ok" : "posture", hint: postureOk ? null : P.hint,
+      phase: !ready ? "calibrating" : cur >= UP ? "bottom" : "top", value: v[0] - v[1], label: `${Math.round(Math.max(0, cur) * 100)}%`,
+      prog: Math.max(0, Math.min(1, cur / def.full)), rep: done,
     };
   }
 
@@ -333,7 +374,7 @@ export function createTracker(exKey = "squat") {
   function rearm() {
     st.det = newDet(); st.armSide = null;
     st.alt.side = 0; st.alt.since = 0; st.alt.visits = 0;
-    st.hold = { held: 0, last: 0, secs: 0, good: 0 };
+    st.hold = { held: 0, last: 0, secs: 0, good: 0 }; st.lift = null;
   }
 
   return { update, setExercise, resetSmoothing, rearm, get exercise() { return key; } };
