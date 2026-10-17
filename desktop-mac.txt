@@ -1,12 +1,12 @@
-desktop mac run 8 Sat Oct 17 15:55:36 UTC 2026
+desktop mac run 9 Sat Oct 17 16:48:48 UTC 2026
 == install (tail)
-v1.7.8
+v1.7.9
 npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
-added 284 packages in 6s
+added 284 packages in 9s
 44.9.0
 == build (tail)
   • electron-builder  version=26.15.3 os=25.6.0
@@ -27,8 +27,8 @@ added 284 packages in 6s
   • building        target=DMG arch=x64 file=dist/FormIQ-mac-x64.dmg
   • executing @electron/rebuild  electronVersion=44.9.0 arch=arm64 buildFromSource=false workspaceRoot=/Users/runner/work/FormIQ/FormIQ/desktop projectDir=./ appDir=./
   • installing native dependencies  arch=arm64
-  • completed installing native dependencies
   • downloaded      label=dmgbuild-bundle-arm64-75c8a6c.tar.gz progress=100%
+  • completed installing native dependencies
   • packaging       platform=darwin arch=arm64 electron=44.9.0 appOutDir=dist/mac-arm64
   • downloaded      label=electron progress=100%
   • downloaded electron zip extracted successfully  output=/Users/runner/work/FormIQ/FormIQ/desktop/dist/mac-arm64
