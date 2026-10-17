@@ -60,6 +60,7 @@ jobs:
           node --check looks.js
           node --check exercises.js
           node --check reps.js
+          node --check recorder.js
           node --check app.js
           node --check ride.js
           node --check runtrack.js

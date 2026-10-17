@@ -5,6 +5,7 @@ Camera-based workout tracker that runs in the browser on phones and computers.
 - Tracks body pose on-device (MediaPipe Pose Landmarker); no video is uploaded
 - Auto-frame (toggle): digital pan and zoom follows you so you stay centred and a good size; the guide only asks for the body parts each exercise needs (for example head to hips for arm work)
 - Desktop app for Linux (zip, AppImage, deb), Windows and Mac, built by GitHub Actions from the `desktop/` folder (Electron wrapper around the same web app, offline, camera-only permissions, camera picker, Bluetooth device chooser). Download page: install-desktop.html
+- Optional "Record tracking" (off by default): saves only the body-point numbers of a set, so a miscount can be replayed with `node tools/rep-tests/replay.mjs recording.json`
 - Adaptive framing: the setup guide asks only for the body parts an exercise needs (squats work from hips and knees, no feet required), accepts partial views and relaxes its demands if you are stuck
 - A customizable coach: 25 hairstyles (many black styles: afro, puffs, braids, locs, cornrows, bantu knots and more), 14 hair colours, 8 skin tones, outfits, build, proportions and extras, saved on your device
 - An original, fully 3D anime-style coach (three.js, bundled, drag it to look around; falls back to 2D without WebGL) demonstrates every exercise in an animation, and pops up on the camera view whenever you need to get back into position (there is also a Show demo button)

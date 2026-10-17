@@ -3,12 +3,13 @@ import "./secure.js?v=28";
 import { PoseLandmarker, FilesetResolver } from "./vendor/mediapipe/vision_bundle.mjs";
 import { initFood } from "./food.js?v=28";
 import { initAI } from "./ai.js?v=28";
-import { initActivity } from "./activity.js?v=28";
+import { initActivity, saveFile } from "./activity.js?v=28";
 import { initRide } from "./ride.js?v=28";
 import { EX, CATS, CIRCUITS, createTracker } from "./reps.js?v=28";
 import { evaluate, createGuide } from "./guide.js?v=28";
 import { COACH } from "./coach-data.js?v=28";
 import { createBuddy, setLook, getLook } from "./buddy3d.js?v=28";
+import { createRecorder } from "./recorder.js?v=28";
 import { HAIR_STYLES, HAIR_COLORS, SKIN, EYES, TOP_COLORS, BOTTOM_COLORS, SHOE_COLORS, ACCENT_COLORS, PROPORTIONS, BUILDS, TOPS, BOTTOMS, DEFAULT_LOOK, randomLook, saveLook, loadLook } from "./looks.js?v=28";
 
 const $ = id => document.getElementById(id);
@@ -345,6 +346,7 @@ function loop(_now,meta){
     // the camera's own capture time keeps the spacing between frames steady even when inference time varies
     const capT=meta&&(meta.captureTime||meta.presentationTime);
     const r=tracker.update(res.landmarks?.[0]||null, res.worldLandmarks?.[0]||null, video.srcObject?(capT>0&&Math.abs(capT-t)<1000?capT:t):video.currentTime*1000, (video.videoWidth||4)/(video.videoHeight||3));
+    if(rec.on){ rec.push(t,res.landmarks?.[0]||null,res.worldLandmarks?.[0]||null); if(r.rep) rec.event(t,"rep",{ex:exKey,score:r.rep.score}); }
     draw(r.img||null); autoFrameStep(r,t);
     if(guideStep(r,t)) analyze(r);
     else { setPhase(guide.started?"Go":"Getting ready"); hud([[fps+" fps",fps&&fps<10?"warn":""]]); $("romBar").style.width="0%"; }
@@ -353,6 +355,27 @@ function loop(_now,meta){
 }
 window.FormIQTrackingDiagnostics=()=>({fps,meanInferenceMs:Number(poseLatencyMs.toFixed(1)),peakInferenceMs:Number(poseLatencyPeakMs.toFixed(1)),samples:poseSamples,model:modelKey});
 function schedule(){ if(video.requestVideoFrameCallback) video.requestVideoFrameCallback((n,m)=>loop(n,m)); else requestAnimationFrame(loop); }
+
+
+/* ---------- optional tracking recorder (body points only, saved by you, never uploaded) ---------- */
+const rec=createRecorder();
+function paintRec(){
+  $("recBtn").textContent="Record tracking: "+(rec.on?"on":"off"); $("recBtn").setAttribute("aria-pressed",rec.on);
+  const has=rec.frames>0; $("recBox").hidden=!has&&!rec.on;
+  $("recInfo").textContent=rec.on&&!has?"Recording starts when the camera is running…":`${rec.frames} frames (${rec.seconds} s) kept in memory`+(rec.on?" · recording":"");
+}
+$("recBtn").onclick=()=>{ if(rec.on) rec.stop(); else rec.start(); paintRec(); };
+$("recClear").onclick=()=>{ rec.clear(); paintRec(); };
+$("recSave").onclick=()=>{
+  if(!rec.frames) return;
+  const meta={app:"FormIQ",appVersion:window.FormIQNative?.version||window.FormIQDesktop?.version||"web",date:new Date().toISOString(),exercise:exKey,realReps:Number($("recReal").value)||null,note:($("recNote").value||"").slice(0,500),
+    model:modelKey,fps,diag:window.FormIQTrackingDiagnostics?.(),video:[video.videoWidth,video.videoHeight],autoFrame,platform:window.FormIQNative?.platform||(window.FormIQDesktop?"desktop":"web"),ua:navigator.userAgent,
+    counted:set.reps?.length??null,sets:sets.map(s=>({ex:s.ex,reps:s.reps}))};
+  saveFile(`formiq-recording-${exKey}-${Date.now()}.json`,"application/json",rec.toJSON(meta));
+  $("recInfo").textContent="Saved. Send that file to your developer; it contains only body-point numbers, no video.";
+};
+setInterval(()=>{ if(rec.on) paintRec(); },1500);
+paintRec();
 
 /* ---------- consent (shown once per browser, again if the terms version changes) ---------- */
 const CONSENT_KEY="formiq.consent", CONSENT_VER="2026-10-10";

@@ -502,6 +502,7 @@ footer a{color:var(--muted)}
         <button id="guideBtn" aria-pressed="true">Setup guide: on</button>
         <button id="demoBtn" aria-pressed="false">Show demo</button>
         <button id="autoBtn" aria-pressed="true">Auto-frame: on</button>
+        <button id="recBtn" aria-pressed="false">Record tracking: off</button>
         <label class="field" for="quality">Tracking
           <select id="quality">
             <option value="lite">Fast</option>
@@ -509,8 +510,16 @@ footer a{color:var(--muted)}
             <option value="heavy">Accurate</option>
           </select></label>
       </div>
+      <div class="panel" id="recBox" hidden style="margin-top:10px">
+        <b>Tracking recording</b>
+        <p class="muted" id="recInfo" style="margin:.3em 0"></p>
+        <p class="muted" style="margin:.3em 0;font-size:13px">Only the body-point numbers are kept (no video or pictures), in memory until you save them. Nothing is sent anywhere.</p>
+        <label>Reps you really did <input id="recReal" type="number" min="0" max="999" inputmode="numeric" style="width:5em"></label>
+        <label style="display:block;margin:6px 0">What went wrong? <input id="recNote" type="text" maxlength="300" style="width:100%" placeholder="e.g. missed rep 3, counted twice at the end"></label>
+        <button id="recSave" type="button">Save recording</button> <button id="recClear" type="button">Discard</button>
+      </div>
       <p class="note" id="status">The pose model loads the first time you start. Everything runs on this device.</p>
-      <p class="note">Rep counter v6 (12 Oct 2026): 77 exercises incl. tracked stretches, adaptive setup guide, 3D coach, dropout-proof counting, holds and circuits. Each exercise only counts in its own starting position.</p>
+      <p class="note">Rep counter v6 (17 Oct 2026): 77 exercises incl. tracked stretches, adaptive setup guide, 3D coach, dropout-proof counting, holds and circuits. Each exercise only counts in its own starting position.</p>
     </section>
 
     <aside class="rail">
